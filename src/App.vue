@@ -62,6 +62,53 @@ const handleMappingUpdate = (column, role) => {
   }
 }
 
+const handleTranspose = () => {
+  if (!activeDatabase.value) return
+
+  const originalData = activeDatabase.value.data
+  const originalColumns = activeDatabase.value.columns
+
+  // Create a 2D matrix including headers as the first column/row
+  // illustrator style: 
+  // [Col1, Col2]
+  // [R1C1, R1C2]
+  // becomes
+  // [Col1, R1C1]
+  // [Col2, R1C2]
+
+  const matrix = [
+    originalColumns,
+    ...originalData.map(row => originalColumns.map(col => row[col]))
+  ]
+
+  const transposedMatrix = matrix[0].map((_, colIndex) => matrix.map(row => row[colIndex]))
+
+  // New columns are the first row of the transposed matrix
+  const newColumns = transposedMatrix[0].map(val => String(val))
+  
+  // New data rows
+  const newData = transposedMatrix.slice(1).map(row => {
+    const obj = {}
+    newColumns.forEach((col, idx) => {
+      obj[col] = row[idx]
+    })
+    return obj
+  })
+
+  // Update original columns for display
+  activeDatabase.value = {
+    ...activeDatabase.value,
+    columns: newColumns,
+    data: newData
+  }
+
+  // Clear mapping because columns changed
+  Object.keys(dataMapping).forEach(key => delete dataMapping[key])
+  
+  // Re-run heuristics
+  handleDataLoaded(activeDatabase.value)
+}
+
 const baseImage = ref(null)
 const hotspots = reactive([])
 const selectedHotspotId = ref(null)
@@ -194,12 +241,13 @@ const copyToClipboard = () => {
              
              <!-- Data Grid Panel -->
              <div class="flex-1 bg-white rounded-[2rem] border border-slate-50 shadow-sm flex flex-col overflow-hidden relative min-h-[400px]">
-               <DataGrid 
-                 :data="activeDatabase.data"
-                 :columns="activeDatabase.columns"
-                 :mapping="dataMapping"
-                 @update-mapping="handleMappingUpdate"
-               />
+                <DataGrid 
+                  :data="activeDatabase.data"
+                  :columns="activeDatabase.columns"
+                  :mapping="dataMapping"
+                  @update-mapping="handleMappingUpdate"
+                  @transpose="handleTranspose"
+                />
                
                <!-- Reset DB logic -->
                <button 

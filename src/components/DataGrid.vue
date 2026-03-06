@@ -55,6 +55,15 @@ const isRoleActive = (column, role) => {
           <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest pl-1">Total Rows: {{ data.length }}</p>
         </div>
       </div>
+      <button 
+        @click="$emit('transpose')"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+        <span class="text-[10px] font-black uppercase tracking-widest">Transpose</span>
+      </button>
     </div>
 
     <!-- Table Container -->
