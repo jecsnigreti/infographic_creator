@@ -411,12 +411,12 @@ ${configJson}
       // Build legend
       const legend = document.createElement('div');
       legend.style.cssText = 'position:absolute; bottom:1rem; right:1rem; background:rgba(255,255,255,0.8); padding:0.5rem; border-radius:0.5rem; font-size:0.75rem; border:1px solid #e2e8f0; z-index:100;';
-      legend.innerHTML = `< div style = "font-weight:bold; margin-bottom:0.25rem;" > ${ valueCol }</div >
-      <div style="display:flex; align-items:center; gap:0.5rem;">
-        <span>${minVal}</span>
-        <div style="width:60px; height:10px; background:linear-gradient(to right, ${cfg.heatMin || '#e2e8f0'}, ${cfg.heatMax || '#4f46e5'});"></div>
-        <span>${maxVal}</span>
-      </div>`;
+      legend.innerHTML = '<div style="font-weight:bold; margin-bottom:0.25rem;">' + valueCol + '</div>' +
+        '<div style="display:flex; align-items:center; gap:0.5rem;">' +
+          '<span>' + minVal + '</span>' +
+          '<div style="width:60px; height:10px; background:linear-gradient(to right, ' + (cfg.heatMin || '#e2e8f0') + ', ' + (cfg.heatMax || '#4f46e5') + ');"></div>' +
+          '<span>' + maxVal + '</span>' +
+        '</div>';
 
       const tooltip = document.createElement('div');
       tooltip.className = 'map-tooltip';
@@ -433,7 +433,7 @@ ${configJson}
 
       const regions = ${JSON.stringify(HUNGARY_COUNTIES)};
       regions.forEach(reg => {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute('d', reg.path);
         path.setAttribute('id', reg.id);
         path.setAttribute('class', 'map-county map-region-' + reg.id + ' map-parent-' + (reg.parentId || reg.id));
@@ -445,6 +445,9 @@ ${configJson}
       container.appendChild(svg);
       container.appendChild(legend);
 
+      console.log('Map Engine: Data items to process:', data.length);
+      let coloredCount = 0;
+
       data.forEach(item => {
         if (!item.geoId) return;
         const paths = svg.querySelectorAll('.map-parent-' + item.geoId);
@@ -453,6 +456,7 @@ ${configJson}
           const factor = range <= 0 ? 0.5 : (val - minVal) / range;
           const color = interpolateColor(cfg.heatMin || '#e2e8f0', cfg.heatMax || '#4f46e5', factor);
           
+          coloredCount++;
           paths.forEach(p => {
             p.setAttribute('fill', color);
             p.addEventListener('mouseenter', (e) => {
@@ -469,6 +473,7 @@ ${configJson}
           });
         }
       });
+      console.log('Map Engine: Regions colored:', coloredCount);
     } catch (err) {
       console.error('Map initialization error:', err);
       container.innerHTML = '<div style="padding:1rem;color:#ef4444;text-align:center;">Map generation error. Please check your data.</div>';
