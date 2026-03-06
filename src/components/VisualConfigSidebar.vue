@@ -28,8 +28,11 @@ const engines = [
 
 const maps = [
   { id: 'hu-counties', name: 'Hungary (Counties)' },
-  { id: 'world', name: 'World Map' },
-  { id: 'eu', name: 'Europe' }
+  { id: 'usa', name: 'USA States' },
+  { id: 'eu', name: 'European Union' },
+  { id: 'africa', name: 'Africa' },
+  { id: 'middle-east', name: 'Middle East' },
+  { id: 'world', name: 'World Map' }
 ]
 
 const chartTypes = [

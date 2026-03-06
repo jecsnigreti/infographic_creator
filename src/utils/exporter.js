@@ -1,4 +1,9 @@
 import { HUNGARY_COUNTIES } from './maps/hungary-counties.js';
+import { USA_STATES } from './maps/usa-states.js';
+import { WORLD_COUNTRIES } from './maps/world-countries.js';
+import { AFRICA_COUNTRIES } from './maps/africa-countries.js';
+import { EU_MEMBERS } from './maps/eu-members.js';
+import { MIDDLE_EAST } from './maps/middle-east.js';
 
 export function generateWPCode(hotspots, config, baseImage) {
   const id = `infog-${Math.random().toString(36).substr(2, 9)}`;
@@ -424,14 +429,36 @@ ${configJson}
 
       // Create SVG
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute('viewBox', '0 0 1000 600');
-      svg.setAttribute('width', '1000');
-      svg.setAttribute('height', '600');
-      svg.style.width = '100%';
-      svg.style.height = '100%';
-      svg.style.display = 'block';
+      let regions = [];
+      let viewBox = "0 0 1000 600";
+      
+      switch(cfg.mapTemplate) {
+        case 'usa': 
+          regions = ${JSON.stringify(USA_STATES)}; 
+          viewBox = "0 0 1000 800";
+          break;
+        case 'world': 
+          regions = ${JSON.stringify(WORLD_COUNTRIES)}; 
+          viewBox = "0 0 1000 600";
+          break;
+        case 'africa': 
+          regions = ${JSON.stringify(AFRICA_COUNTRIES)}; 
+          viewBox = "0 0 1000 800";
+          break;
+        case 'eu': 
+          regions = ${JSON.stringify(EU_MEMBERS)}; 
+          viewBox = "0 0 1050 900";
+          break;
+        case 'middle-east': 
+          regions = ${JSON.stringify(MIDDLE_EAST)}; 
+          viewBox = "0 0 1000 800";
+          break;
+        default: 
+          regions = ${JSON.stringify(HUNGARY_COUNTIES)};
+          viewBox = "0 0 1000 600";
+      }
 
-      const regions = ${JSON.stringify(HUNGARY_COUNTIES)};
+      svg.setAttribute('viewBox', viewBox);
       regions.forEach(reg => {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute('d', reg.path);
