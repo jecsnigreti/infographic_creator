@@ -309,51 +309,68 @@ ${configJson}
     canvas.style.height = '100%';
     
     function renderChart() {
-      const data = JSON.parse(document.getElementById('${dataNodeId}').textContent);
-      const cfg = JSON.parse(document.getElementById('config_${uniqueId}').textContent);
-      
-      container.innerHTML = '';
-      container.appendChild(canvas);
-      const ctx = canvas.getContext('2d');
-      
-      const labels = data.map(d => d.label);
-      const datasets = cfg.valueCols.map((col, idx) => {
-        const color = (cfg.seriesColors && cfg.seriesColors[col]) || '#4f46e5';
-        return {
-          label: col,
-          data: data.map(d => d[col]),
-          backgroundColor: color + (cfg.chartType === 'pie' ? '' : '33'),
-          borderColor: color,
-          borderWidth: cfg.chartType === 'line' ? 3 : 1,
-          fill: cfg.chartType === 'line' ? false : true,
-          tension: 0.4
-        };
-      });
-
-      new Chart(ctx, {
-        type: cfg.chartType || 'bar',
-        data: { labels, datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { 
-            legend: { 
-              display: datasets.length > 1,
-              position: 'top',
-              labels: { font: { weight: 'bold', family: 'sans-serif' } }
-            }
-          },
-          scales: cfg.chartType === 'pie' || cfg.chartType === 'radar' ? {} : {
-            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-            x: { grid: { display: false } }
-          }
+      try {
+        const dataEl = document.getElementById('${dataNodeId}');
+        const configEl = document.getElementById('config_${uniqueId}');
+        if (!dataEl || !configEl) {
+          console.error('Visual Engine error: Missing data or config');
+          return;
         }
-      });
+        const data = JSON.parse(dataEl.textContent);
+        const cfg = JSON.parse(configEl.textContent);
+        
+        container.innerHTML = '';
+        container.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        
+        const labels = data.map(d => d.label);
+        const datasets = cfg.valueCols.map((col, idx) => {
+          const color = (cfg.seriesColors && cfg.seriesColors[col]) || '#4f46e5';
+          return {
+            label: col,
+            data: data.map(d => d[col]),
+            backgroundColor: color + (cfg.chartType === 'pie' ? '' : '33'),
+            borderColor: color,
+            borderWidth: cfg.chartType === 'line' ? 3 : 1,
+            fill: cfg.chartType === 'line' ? false : true,
+            tension: 0.4
+          };
+        });
+
+        new Chart(ctx, {
+          type: cfg.chartType || 'bar',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+              legend: { 
+                display: datasets.length > 1,
+                position: 'top',
+                labels: { font: { weight: 'bold', family: 'sans-serif' } }
+              }
+            },
+            scales: cfg.chartType === 'pie' || cfg.chartType === 'radar' ? {} : {
+              y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Visual Engine initialization failed:', err);
+        container.innerHTML = '<div style="padding:1rem;color:#ef4444;text-align:center;">Visualization error. Please check your data.</div>';
+      }
     }
-    if (typeof Chart !== 'undefined') { renderChart(); }
-    else {
+
+    if (typeof Chart !== 'undefined') { 
+      renderChart(); 
+    } else {
       const script = document.querySelector('script[src*="chart.js"]');
-      if (script) script.addEventListener('load', renderChart);
+      if (script) {
+        script.addEventListener('load', renderChart);
+        // Fallback for cached scripts
+        setTimeout(() => { if (typeof Chart !== 'undefined' && container.querySelector('.visual-placeholder')) renderChart(); }, 1500);
+      }
     }
   })();
 </script>`;
@@ -378,74 +395,90 @@ ${configJson}
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
   }
 
-  const valueCol = cfg.heatValueCol || cfg.valueCols[0];
-  if (valueCol) {
-    const values = data.map(d => d[valueCol]).filter(v => typeof v === 'number');
-    const minVal = values.length ? Math.min(...values) : 0;
-    const maxVal = values.length ? Math.max(...values) : 100;
-    const range = maxVal - minVal;
-
-    // Build legend
-    const legend = document.createElement('div');
-    legend.style.cssText = 'position:absolute; bottom:1rem; right:1rem; background:rgba(255,255,255,0.8); padding:0.5rem; border-radius:0.5rem; font-size:0.75rem; border:1px solid #e2e8f0; z-index:100;';
-    legend.innerHTML = \`<div style="font-weight:bold; margin-bottom:0.25rem;">\${valueCol}</div>
-      <div style="display:flex; align-items:center; gap:0.5rem;">
-        <span>\${minVal}</span>
-        <div style="width:60px; height:10px; background:linear-gradient(to right, \${cfg.heatMin || '#e2e8f0'}, \${cfg.heatMax || '#4f46e5'});"></div>
-        <span>\${maxVal}</span>
-      </div>\`;
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'map-tooltip';
-    document.body.appendChild(tooltip);
-
-    // Create SVG
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute('viewBox', '0 0 1000 600');
-    svg.setAttribute('width', '1000');
-    svg.setAttribute('height', '600');
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.display = 'block';
-
-    const regions = ${JSON.stringify(HUNGARY_COUNTIES)};
-    regions.forEach(reg => {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute('d', reg.path);
-      path.setAttribute('id', reg.id);
-      path.setAttribute('class', 'map-county map-region-' + reg.id + ' map-parent-' + (reg.parentId || reg.id));
-      path.setAttribute('fill', '#f1f5f9');
-      svg.appendChild(path);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(svg);
-    container.appendChild(legend);
-
-    data.forEach(item => {
-      if (!item.geoId) return;
-      const paths = svg.querySelectorAll('.map-parent-' + item.geoId);
-      if (paths.length) {
-        const val = item[valueCol];
-        const factor = range <= 0 ? 0.5 : (val - minVal) / range;
-        const color = interpolateColor(cfg.heatMin || '#e2e8f0', cfg.heatMax || '#4f46e5', factor);
-        
-        paths.forEach(p => {
-          p.setAttribute('fill', color);
-          p.addEventListener('mouseenter', (e) => {
-            tooltip.style.display = 'block';
-            tooltip.innerHTML = '<strong>' + item.label + '</strong><br>' + valueCol + ': ' + val;
-          });
-          p.addEventListener('mousemove', (e) => {
-            tooltip.style.left = (e.clientX + 10) + 'px';
-            tooltip.style.top = (e.clientY - 40) + 'px';
-          });
-          p.addEventListener('mouseleave', () => {
-            tooltip.style.display = 'none';
-          });
-        });
+  function initMap() {
+    try {
+      const valueCol = cfg.heatValueCol || cfg.valueCols[0];
+      if (!valueCol) {
+        container.innerHTML = '<div style="padding:1rem;color:#64748b;text-align:center;">No data column selected for heatmap.</div>';
+        return;
       }
-    });
+      
+      const values = data.map(d => d[valueCol]).filter(v => typeof v === 'number');
+      const minVal = values.length ? Math.min(...values) : 0;
+      const maxVal = values.length ? Math.max(...values) : 100;
+      const range = maxVal - minVal;
+
+      // Build legend
+      const legend = document.createElement('div');
+      legend.style.cssText = 'position:absolute; bottom:1rem; right:1rem; background:rgba(255,255,255,0.8); padding:0.5rem; border-radius:0.5rem; font-size:0.75rem; border:1px solid #e2e8f0; z-index:100;';
+      legend.innerHTML = `< div style = "font-weight:bold; margin-bottom:0.25rem;" > ${ valueCol }</div >
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <span>${minVal}</span>
+        <div style="width:60px; height:10px; background:linear-gradient(to right, ${cfg.heatMin || '#e2e8f0'}, ${cfg.heatMax || '#4f46e5'});"></div>
+        <span>${maxVal}</span>
+      </div>`;
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'map-tooltip';
+      document.body.appendChild(tooltip);
+
+      // Create SVG
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute('viewBox', '0 0 1000 600');
+      svg.setAttribute('width', '1000');
+      svg.setAttribute('height', '600');
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      svg.style.display = 'block';
+
+      const regions = ${JSON.stringify(HUNGARY_COUNTIES)};
+      regions.forEach(reg => {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        path.setAttribute('d', reg.path);
+        path.setAttribute('id', reg.id);
+        path.setAttribute('class', 'map-county map-region-' + reg.id + ' map-parent-' + (reg.parentId || reg.id));
+        path.setAttribute('fill', '#f1f5f9');
+        svg.appendChild(path);
+      });
+
+      container.innerHTML = '';
+      container.appendChild(svg);
+      container.appendChild(legend);
+
+      data.forEach(item => {
+        if (!item.geoId) return;
+        const paths = svg.querySelectorAll('.map-parent-' + item.geoId);
+        if (paths.length) {
+          const val = item[valueCol];
+          const factor = range <= 0 ? 0.5 : (val - minVal) / range;
+          const color = interpolateColor(cfg.heatMin || '#e2e8f0', cfg.heatMax || '#4f46e5', factor);
+          
+          paths.forEach(p => {
+            p.setAttribute('fill', color);
+            p.addEventListener('mouseenter', (e) => {
+              tooltip.style.display = 'block';
+              tooltip.innerHTML = '<strong>' + item.label + '</strong><br>' + valueCol + ': ' + val;
+            });
+            p.addEventListener('mousemove', (e) => {
+              tooltip.style.left = (e.clientX + 10) + 'px';
+              tooltip.style.top = (e.clientY - 40) + 'px';
+            });
+            p.addEventListener('mouseleave', () => {
+              tooltip.style.display = 'none';
+            });
+          });
+        }
+      });
+    } catch (err) {
+      console.error('Map initialization error:', err);
+      container.innerHTML = '<div style="padding:1rem;color:#ef4444;text-align:center;">Map generation error. Please check your data.</div>';
+    }
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initMap();
+  } else {
+    document.addEventListener('DOMContentLoaded', initMap);
   }
 })();
 </script>
