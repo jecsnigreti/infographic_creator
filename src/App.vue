@@ -244,10 +244,11 @@ const stats = computed(() => [
 const handlePngExport = async (scale) => {
   isExportingPng.value = true
   try {
-    const width = parseInt(engineConfig.chartWidth, 10) || 900
-    await exportPng(generatedCode.value, { width, scale, filename: `infografika-${scale}x.png` })
+    // chartWidth is a CSS value for the responsive embed (e.g. "100%"), not a pixel size -
+    // the export render always uses a fixed capture width regardless of that setting.
+    await exportPng(generatedCode.value, { width: 1000, scale, filename: `infografika-${scale}x.png` })
   } catch (err) {
-    alert('PNG export sikertelen: ' + err.message + '\n\nEllenőrizd, hogy fut-e a szerver (cd server && npm start).')
+    alert('PNG export sikertelen: ' + err.message)
   } finally {
     isExportingPng.value = false
   }
