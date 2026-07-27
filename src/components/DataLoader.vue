@@ -1,12 +1,38 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { read, utils } from 'xlsx'
-import { DocumentArrowUpIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { DocumentArrowUpIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
+import { parseDelimitedText } from '../utils/clipboardParse.js'
 
 const emit = defineEmits(['data-loaded'])
 const isDragging = ref(false)
 const isLoading = ref(false)
 const error = ref(null)
+
+const startBlank = () => {
+  const columns = ['Címke', 'Érték']
+  const data = [
+    { 'Címke': '', 'Érték': '' },
+    { 'Címke': '', 'Érték': '' },
+    { 'Címke': '', 'Érték': '' }
+  ]
+  emit('data-loaded', { filename: 'Kézi adatbevitel', sheetName: null, data, columns })
+}
+
+const handlePaste = (e) => {
+  const text = e.clipboardData?.getData('text')
+  if (!text || !text.trim()) return
+  e.preventDefault()
+  const { columns, data } = parseDelimitedText(text)
+  if (!columns.length || !data.length) {
+    error.value = 'A vágólap tartalma nem ismerhető fel táblázatos adatként.'
+    return
+  }
+  emit('data-loaded', { filename: 'Vágólapról beillesztve', sheetName: null, data, columns })
+}
+
+onMounted(() => document.addEventListener('paste', handlePaste))
+onUnmounted(() => document.removeEventListener('paste', handlePaste))
 
 const handleDrop = async (e) => {
   e.preventDefault()
@@ -94,6 +120,19 @@ const processFile = async (file) => {
         <div class="px-6 py-2.5 bg-white text-slate-600 font-bold rounded-xl shadow-sm border border-slate-100 uppercase tracking-widest text-[10px] group-hover:bg-slate-800 group-hover:text-white transition-colors">
           Browse Files
         </div>
+
+        <p class="text-[11px] font-bold text-slate-300 uppercase tracking-widest mt-6 mb-3">vagy</p>
+
+        <button
+          type="button"
+          @click.prevent.stop="startBlank"
+          class="flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-50 text-indigo-600 font-bold uppercase tracking-widest text-[10px] hover:bg-indigo-100 transition-colors"
+        >
+          <PencilSquareIcon class="w-4 h-4" />
+          Adat beírása kézzel
+        </button>
+
+        <p class="text-[10px] font-medium text-slate-300 mt-4">Excelből/Sheetsből is beillesztheted (Ctrl/Cmd+V).</p>
       </label>
 
       <!-- Error State Overlay -->

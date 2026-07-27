@@ -17,8 +17,14 @@
     "@tailwindcss/vite": "^4.2.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "autoprefixer": "^10.4.27",
+    "d3-geo": "^3.1.1",
+    "i18n-iso-countries": "^7.14.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
-    "vite": "^7.3.1"
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1",
+    "vite": "^7.3.1",
+    "world-atlas": "^2.0.2",
+    "world-geojson": "^3.4.0"
   }
 }

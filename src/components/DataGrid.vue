@@ -16,7 +16,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update-mapping'])
+const emit = defineEmits(['update-mapping', 'transpose', 'update-cell', 'add-row', 'remove-row', 'add-column', 'remove-column'])
 
 const mappingOptions = [
   { value: 'label', label: 'X-Axis / Label' },
@@ -55,15 +55,29 @@ const isRoleActive = (column, role) => {
           <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest pl-1">Total Rows: {{ data.length }}</p>
         </div>
       </div>
-      <button 
-        @click="$emit('transpose')"
-        class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-        </svg>
-        <span class="text-[10px] font-black uppercase tracking-widest">Transpose</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="emit('add-row')"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+        >
+          <span class="text-[10px] font-black uppercase tracking-widest">+ Sor</span>
+        </button>
+        <button
+          @click="emit('add-column')"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+        >
+          <span class="text-[10px] font-black uppercase tracking-widest">+ Oszlop</span>
+        </button>
+        <button
+          @click="$emit('transpose')"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+          </svg>
+          <span class="text-[10px] font-black uppercase tracking-widest">Transpose</span>
+        </button>
+      </div>
     </div>
 
     <!-- Table Container -->
@@ -73,12 +87,19 @@ const isRoleActive = (column, role) => {
           <!-- Data Column Names -->
           <tr>
             <th class="w-12 px-4 py-3 border-b border-slate-100 bg-slate-50 text-slate-400 font-bold text-center border-r">#</th>
-            <th 
-              v-for="col in columns" 
-              :key="'header-'+col" 
+            <th
+              v-for="col in columns"
+              :key="'header-'+col"
               class="px-5 py-4 border-b border-slate-100 font-black text-slate-800 tracking-tight"
             >
-              {{ truncate(col, 25) }}
+              <div class="flex items-center gap-2">
+                <span class="flex-1 min-w-0">{{ truncate(col, 25) }}</span>
+                <button
+                  @click="emit('remove-column', col)"
+                  title="Oszlop törlése"
+                  class="shrink-0 w-5 h-5 flex items-center justify-center rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                >×</button>
+              </div>
             </th>
           </tr>
           
@@ -108,14 +129,28 @@ const isRoleActive = (column, role) => {
         </thead>
         
         <tbody class="divide-y divide-slate-50">
-          <tr v-for="(row, idx) in previewData" :key="idx" class="hover:bg-slate-50/50 transition-colors">
-            <td class="px-4 py-3 text-xs font-bold text-slate-300 text-center border-r border-slate-100">{{ idx + 1 }}</td>
-            <td 
-              v-for="col in columns" 
-              :key="'cell-'+idx+'-'+col" 
-              class="px-5 py-3 text-slate-600 max-w-[300px] truncate"
+          <tr v-for="(row, idx) in previewData" :key="idx" class="hover:bg-slate-50/50 transition-colors group/row">
+            <td class="px-2 py-3 text-xs font-bold text-slate-300 text-center border-r border-slate-100">
+              <div class="flex items-center justify-center gap-1">
+                <span class="group-hover/row:hidden">{{ idx + 1 }}</span>
+                <button
+                  @click="emit('remove-row', idx)"
+                  title="Sor törlése"
+                  class="hidden group-hover/row:flex w-5 h-5 items-center justify-center rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                >×</button>
+              </div>
+            </td>
+            <td
+              v-for="col in columns"
+              :key="'cell-'+idx+'-'+col"
+              class="px-1 py-1 text-slate-600 max-w-[300px]"
             >
-              {{ row[col] }}
+              <input
+                type="text"
+                :value="row[col]"
+                @change="emit('update-cell', idx, col, $event.target.value)"
+                class="w-full bg-transparent px-4 py-2 rounded-lg outline-none focus:bg-indigo-50/50 focus:ring-1 focus:ring-indigo-200 truncate"
+              />
             </td>
           </tr>
           <tr v-if="data.length > 100">

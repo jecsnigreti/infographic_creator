@@ -1,10 +1,11 @@
 <script setup>
-import { 
-  MapIcon, 
-  ChartPieIcon, 
-  PhotoIcon,
+import {
+  MapIcon,
+  ChartPieIcon,
   PaintBrushIcon,
-  AdjustmentsHorizontalIcon
+  AdjustmentsHorizontalIcon,
+  DocumentTextIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
@@ -22,16 +23,24 @@ const emit = defineEmits(['update:engine', 'update:config', 'generate'])
 
 const engines = [
   { id: 'map', name: 'SVG Map', icon: MapIcon, desc: 'Interactive Geo-heatmap' },
-  { id: 'chart', name: 'Data Chart', icon: ChartPieIcon, desc: 'Bar, Pie, Radar, etc.' },
-  { id: 'hotspot', name: 'Image Hotspot', icon: PhotoIcon, desc: 'Points on custom image' }
+  { id: 'chart', name: 'Data Chart', icon: ChartPieIcon, desc: 'Bar, Pie, Radar, etc.' }
 ]
 
 const maps = [
   { id: 'hu-counties', name: 'Hungary (Counties)' },
-  { id: 'usa', name: 'USA States' },
+  { id: 'de-states', name: 'Germany (States)' },
+  { id: 'fr-regions', name: 'France (Regions)' },
+  { id: 'it-regions', name: 'Italy (Regions)' },
+  { id: 'es-regions', name: 'Spain (Regions)' },
+  { id: 'pl-voivodeships', name: 'Poland (Voivodeships)' },
+  { id: 'ro-regions', name: 'Romania (Regions)' },
+  { id: 'nl-provinces', name: 'Netherlands (Provinces)' },
+  { id: 'at-states', name: 'Austria (States)' },
+  { id: 'usa-high-res', name: 'USA States' },
   { id: 'eu', name: 'European Union' },
   { id: 'africa', name: 'Africa' },
   { id: 'middle-east', name: 'Middle East' },
+  { id: 'australia', name: 'Australia States' },
   { id: 'world', name: 'World Map' }
 ]
 
@@ -39,14 +48,88 @@ const chartTypes = [
   { id: 'bar', name: 'Bar Chart' },
   { id: 'line', name: 'Line Chart' },
   { id: 'pie', name: 'Pie Chart' },
+  { id: 'doughnut', name: 'Doughnut Chart' },
   { id: 'radar', name: 'Radar' }
 ]
+
+const numberFormatTypes = [
+  { id: 'thousands', name: 'Ezres tagolás (1 234)' },
+  { id: 'plain', name: 'Sima szám' },
+  { id: 'percent', name: 'Százalék (%)' },
+  { id: 'currency', name: 'Pénznem (Ft)' }
+]
+
+const palettes = [
+  { name: 'Indigo', colors: ['#eef2ff', '#6366f1', '#f97316', '#14b8a6', '#a855f7'] },
+  { name: 'Óceán', colors: ['#f0f9ff', '#0ea5e9', '#0891b2', '#0284c7', '#075985'] },
+  { name: 'Naplemente', colors: ['#fff7ed', '#f97316', '#ef4444', '#f59e0b', '#dc2626'] },
+  { name: 'Erdő', colors: ['#f0fdf4', '#16a34a', '#14b8a6', '#65a30d', '#059669'] },
+  { name: 'Bogyó', colors: ['#fdf4ff', '#a855f7', '#ec4899', '#8b5cf6', '#d946ef'] },
+  { name: 'Monokróm', colors: ['#f8fafc', '#0f172a', '#475569', '#94a3b8', '#1e293b'] }
+]
+
+function updateConfig(patch) {
+  emit('update:config', { ...props.config, ...patch })
+}
+
+function applyPalette(palette) {
+  if (props.engine === 'map') {
+    updateConfig({ heatMin: palette.colors[0], heatMax: palette.colors[1] })
+  } else {
+    const cols = Object.keys(props.config.seriesColors || {})
+    const newColors = {}
+    cols.forEach((col, i) => { newColors[col] = palette.colors[(i % (palette.colors.length - 1)) + 1] })
+    updateConfig({ seriesColors: newColors })
+  }
+}
+
+function updateNumberFormat(patch) {
+  updateConfig({ numberFormat: { ...(props.config.numberFormat || {}), ...patch } })
+}
 </script>
 
 <template>
   <div class="h-full flex flex-col bg-[#FAFBFF]">
     <div class="p-6 md:p-8 border-b border-slate-100 flex-1 overflow-auto custom-scrollbar">
-      
+
+      <!-- Content Fields -->
+      <section class="mb-10">
+        <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <DocumentTextIcon class="w-4 h-4 text-indigo-500" />
+          Tartalom
+        </h3>
+        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
+          <input
+            type="text"
+            :value="config.title"
+            @input="e => updateConfig({ title: e.target.value })"
+            placeholder="Cím"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+          <input
+            type="text"
+            :value="config.subtitle"
+            @input="e => updateConfig({ subtitle: e.target.value })"
+            placeholder="Alcím"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+          <input
+            type="text"
+            :value="config.legendLabel"
+            @input="e => updateConfig({ legendLabel: e.target.value })"
+            placeholder="Jelmagyarázat felirata"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+          <input
+            type="text"
+            :value="config.source"
+            @input="e => updateConfig({ source: e.target.value })"
+            placeholder="Forrás megjelölése (pl. KSH, 2026)"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+        </div>
+      </section>
+
       <!-- Engine Selector -->
       <section class="mb-10">
         <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -84,7 +167,51 @@ const chartTypes = [
         </h3>
         
         <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-6">
-          
+
+          <!-- Palette Quick-Picker -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Színpaletta</label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="p in palettes" :key="p.name"
+                @click="applyPalette(p)"
+                :title="p.name"
+                class="flex rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-400 transition-all h-7 w-16"
+              >
+                <span v-for="c in p.colors.slice(1)" :key="c" class="flex-1 h-full" :style="{ backgroundColor: c }"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Number Format -->
+          <div class="pt-4 border-t border-slate-100">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Számformátum</label>
+            <select
+              :value="config.numberFormat?.type"
+              @change="e => updateNumberFormat({ type: e.target.value })"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 mb-2"
+            >
+              <option v-for="nf in numberFormatTypes" :key="nf.id" :value="nf.id">{{ nf.name }}</option>
+            </select>
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                min="0" max="4"
+                :value="config.numberFormat?.decimals"
+                @input="e => updateNumberFormat({ decimals: e.target.value === '' ? null : Number(e.target.value) })"
+                placeholder="Tizedesjegyek"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+              <input
+                type="text"
+                :value="config.numberFormat?.suffix"
+                @input="e => updateNumberFormat({ suffix: e.target.value })"
+                placeholder="Utótag (pl. kg)"
+                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+          </div>
+
           <!-- Map Settings -->
           <template v-if="engine === 'map'">
             <div>
@@ -200,18 +327,29 @@ const chartTypes = [
             </div>
           </template>
 
-          <template v-else>
-            <div class="text-center py-6 text-slate-400">
-              <PhotoIcon class="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p class="text-sm font-bold">Configure Image & Hotspots in the Canvas Maker.</p>
-            </div>
-          </template>
+        </div>
+      </section>
 
+      <!-- Export Settings -->
+      <section class="mt-8">
+        <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <ArrowDownTrayIcon class="w-4 h-4 text-indigo-500" />
+          Export
+        </h3>
+        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Kimenet tömörítése (minify)</span>
+          <button
+            @click="updateConfig({ minifyExport: !config.minifyExport })"
+            class="w-11 h-6 rounded-full transition-colors relative shrink-0"
+            :class="config.minifyExport ? 'bg-indigo-600' : 'bg-slate-200'"
+          >
+            <span class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform" :class="config.minifyExport ? 'translate-x-5' : 'translate-x-0.5'"></span>
+          </button>
         </div>
       </section>
 
     </div>
-    
+
     <!-- Action Area -->
     <div class="p-6 md:p-8 bg-white border-t border-slate-100">
       <button 

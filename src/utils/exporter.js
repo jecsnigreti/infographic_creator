@@ -1,234 +1,62 @@
 import { HUNGARY_COUNTIES } from './maps/hungary-counties.js';
-import { USA_STATES } from './maps/usa-states.js';
+import { USA_STATES_HIGH_RES } from './maps/usa-high-res.js';
 import { WORLD_COUNTRIES } from './maps/world-countries.js';
 import { AFRICA_COUNTRIES } from './maps/africa-countries.js';
 import { EU_MEMBERS } from './maps/eu-members.js';
 import { MIDDLE_EAST } from './maps/middle-east.js';
+import { AUSTRALIA_STATES } from './maps/australia-states.js';
+import { GERMANY_STATES } from './maps/germany-states.js';
+import { FRANCE_REGIONS } from './maps/france-regions.js';
+import { ITALY_REGIONS } from './maps/italy-regions.js';
+import { SPAIN_REGIONS } from './maps/spain-regions.js';
+import { POLAND_VOIVODESHIPS } from './maps/poland-voivodeships.js';
+import { ROMANIA_REGIONS } from './maps/romania-regions.js';
+import { NETHERLANDS_PROVINCES } from './maps/netherlands-provinces.js';
+import { AUSTRIA_STATES } from './maps/austria-states.js';
 
-export function generateWPCode(hotspots, config, baseImage) {
-  const id = `infog-${Math.random().toString(36).substr(2, 9)}`;
+const MAP_TEMPLATES = {
+  'usa-high-res': { regions: USA_STATES_HIGH_RES, viewBox: '0 0 1000 600' },
+  world: { regions: WORLD_COUNTRIES, viewBox: '0 0 1000 600' },
+  africa: { regions: AFRICA_COUNTRIES, viewBox: '0 0 1000 800' },
+  eu: { regions: EU_MEMBERS, viewBox: '0 0 1050 900' },
+  'middle-east': { regions: MIDDLE_EAST, viewBox: '0 0 1000 800' },
+  australia: { regions: AUSTRALIA_STATES, viewBox: '0 0 1000 800' },
+  'hu-counties': { regions: HUNGARY_COUNTIES, viewBox: '0 0 1000 600' },
+  'de-states': { regions: GERMANY_STATES, viewBox: '0 0 1000 900' },
+  'fr-regions': { regions: FRANCE_REGIONS, viewBox: '0 0 1000 900' },
+  'it-regions': { regions: ITALY_REGIONS, viewBox: '0 0 1000 900' },
+  'es-regions': { regions: SPAIN_REGIONS, viewBox: '0 0 1000 900' },
+  'pl-voivodeships': { regions: POLAND_VOIVODESHIPS, viewBox: '0 0 1000 900' },
+  'ro-regions': { regions: ROMANIA_REGIONS, viewBox: '0 0 1000 900' },
+  'nl-provinces': { regions: NETHERLANDS_PROVINCES, viewBox: '0 0 1000 900' },
+  'at-states': { regions: AUSTRIA_STATES, viewBox: '0 0 1000 900' }
+};
 
-  const hotspotsHTML = hotspots.map(h => {
-    const bubbleColor = h.color || config.themeColor;
-    const iconSVG = {
-      plus: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>',
-      info: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-      question: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-      star: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>',
-      exclamation: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>'
-    }[h.icon || 'plus'];
+function minifyCss(str) {
+  return str.replace(/\/\*.*?\*\//gs, '').replace(/\s+/g, ' ').replace(/ {\s+/g, '{').replace(/:\s+/g, ':').replace(/;\s+/g, ';').replace(/;}/g, '}').trim();
+}
 
-    return `
-    <div class="infog-hotspot" style="left: ${h.x}%; top: ${h.y}%;" data-id="${h.id}">
-      <div class="infog-dot" style="background-color: ${bubbleColor}; border-color: white;">
-        ${iconSVG}
-        <div class="infog-pulse" style="background-color: ${bubbleColor};"></div>
-      </div>
-      <div class="infog-popup">
-        ${h.mediaUrl ? `<img src="${h.mediaUrl}" class="infog-media" alt="${h.title}">` : ''}
-        <div class="infog-popup-content">
-          <h3>${h.title}</h3>
-          <div class="infog-body">${h.content}</div>
-          ${h.link ? `<a href="${h.link}" target="_blank" class="infog-cta" style="background: ${bubbleColor}">${h.cta || 'Learn More'}</a>` : ''}
-        </div>
-        <div class="infog-popup-arrow"></div>
-      </div>
-    </div>
-  `}).join('');
+function minifyJs(str) {
+  return str.replace(/\/\*.*?\*\//gs, '').replace(/\/\/.*?\n/g, '').replace(/\s+/g, ' ').replace(/ {\s+/g, '{').replace(/;\s+/g, ';').replace(/}\s+/g, '}').trim();
+}
 
-  const css = `
-    #${id} {
-      position: relative;
-      width: 100%;
-      margin: 20px 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      overflow: hidden;
-      border-radius: 12px;
+const FORMAT_VALUE_JS_SRC = `
+    function formatValue(val, cfg) {
+      if (typeof val !== 'number' || isNaN(val)) return val;
+      const nf = (cfg && cfg.numberFormat) || {};
+      let n = val;
+      if (nf.decimals != null) n = Number(n.toFixed(nf.decimals));
+      let s;
+      if (nf.type === 'percent') s = n.toLocaleString() + '%';
+      else if (nf.type === 'currency') s = n.toLocaleString() + ' Ft';
+      else if (nf.type === 'plain') s = String(n);
+      else s = n.toLocaleString();
+      return s + (nf.suffix ? ' ' + nf.suffix : '');
     }
-    #${id} img.infog-base {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-    #${id} .infog-hotspot {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      cursor: pointer;
-      z-index: 10;
-    }
-    #${id} .infog-dot {
-      width: 24px;
-      height: 24px;
-      border: 2px solid white;
-      border-radius: 50%;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      position: relative;
-    }
-    #${id} .infog-hotspot:hover .infog-dot {
-      transform: scale(1.15) rotate(5deg);
-    }
-    ${config.pulseAnimation ? `
-    #${id} .infog-pulse {
-      position: absolute;
-      inset: -2px;
-      border-radius: 50%;
-      opacity: 0.6;
-      animation: infog-pulse 2s infinite;
-      z-index: -1;
-    }
-    @keyframes infog-pulse {
-      0% { transform: scale(1); opacity: 0.6; }
-      100% { transform: scale(3); opacity: 0; }
-    }
-    ` : ''}
-    #${id} .infog-popup {
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      width: 280px;
-      background: white;
-      color: #1e293b;
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.15);
-      opacity: 0;
-      visibility: hidden;
-      z-index: 20;
-      transition: opacity 0.4s, visibility 0.4s, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 1px solid rgba(0,0,0,0.05);
-      transform: translate(-50%, -15px) scale(0.95);
-    }
-    #${id} .infog-hotspot.active .infog-popup,
-    #${id} .infog-hotspot:hover .infog-popup {
-      opacity: 1;
-      visibility: visible;
-      transform: translate(-50%, -25px) scale(1);
-    }
-    
-    /* Smart Positioning (Flipped) */
-    #${id} .infog-hotspot.flipped .infog-popup {
-      bottom: auto;
-      top: 100%;
-      transform: translate(-50%, 15px) scale(0.95);
-    }
-    #${id} .infog-hotspot.flipped.active .infog-popup,
-    #${id} .infog-hotspot.flipped:hover .infog-popup {
-      transform: translate(-50%, 25px) scale(1);
-    }
-    #${id} .infog-hotspot.flipped .infog-popup-arrow {
-      top: auto;
-      bottom: 100%;
-      border-top-color: transparent;
-      border-bottom-color: white;
-    }
+`;
 
-    #${id} .infog-media {
-      width: 100%;
-      height: 160px;
-      object-fit: cover;
-      display: block;
-    }
-    #${id} .infog-popup-content {
-      padding: 20px;
-    }
-    #${id} .infog-popup-arrow {
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      border: 10px solid transparent;
-      border-top-color: white;
-    }
-    #${id} h3 { margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: #0f172a; tracking: -0.02em; }
-    #${id} .infog-body { margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #64748b; font-weight: 500; }
-    #${id} .infog-cta {
-      display: inline-block;
-      padding: 10px 20px;
-      color: white !important;
-      text-decoration: none !important;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      tracking: 0.1em;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      transition: all 0.2s;
-    }
-    #${id} .infog-cta:hover {
-      transform: translateY(-2px);
-      filter: brightness(1.1);
-      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
-    }
-  `;
-
-  const js = `
-    (function() {
-      const container = document.getElementById('${id}');
-      const hotspots = container.querySelectorAll('.infog-hotspot');
-      
-      const updatePosition = (h) => {
-        const popup = h.querySelector('.infog-popup');
-        const rect = popup.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        
-        // Vertical Flipping
-        if (rect.top < containerRect.top) {
-          h.classList.add('flipped');
-        } else if (rect.bottom > containerRect.bottom && h.classList.contains('flipped')) {
-          // Check if we should flip back if it was flipped but now overflows bottom
-          // Simple logic: if it fits top, show top.
-        }
-      };
-
-      hotspots.forEach(h => {
-        // Initialize position check on hover or click
-        h.addEventListener('mouseenter', () => updatePosition(h));
-        
-        h.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isActive = h.classList.contains('active');
-          hotspots.forEach(opt => opt.classList.remove('active'));
-          if (!isActive) {
-            h.classList.add('active');
-            updatePosition(h);
-          }
-        });
-      });
-
-      document.addEventListener('click', () => {
-        hotspots.forEach(opt => opt.classList.remove('active'));
-      });
-    })();
-  `;
-
-  let finalCss = css;
-  let finalJs = js;
-
-  if (config.minifyExport) {
-    finalCss = finalCss.replace(/\s+/g, ' ').replace(/\/\*.*?\*\//g, '').replace(/ {\s+/g, '{').replace(/:\s+/g, ':').replace(/;\s+/g, ';').replace(/;}/g, '}').trim();
-    finalJs = finalJs.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*?\n/g, '').replace(/\s+/g, ' ').replace(/ {\s+/g, '{').replace(/;\s+/g, ';').replace(/}\s+/g, '}').trim();
-  }
-
-  return `
-<!-- Interactive Infographic Generated by Antigravity -->
-<div id="${id}">
-  <img src="${baseImage}" class="infog-base" alt="Infographic">
-  ${hotspotsHTML}
-</div>
-
-<style>
-${finalCss}
-</style>
-
-<script>
-${finalJs}
-</script>
-  `.trim();
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 export function generateDataVisualCode(database, mapping, engine, config) {
@@ -239,11 +67,13 @@ export function generateDataVisualCode(database, mapping, engine, config) {
   const labelCol = Object.keys(mapping).find(k => (mapping[k] || []).includes('label'));
   const valueCols = Object.keys(mapping).filter(k => (mapping[k] || []).includes('value'));
   const geoCol = Object.keys(mapping).find(k => (mapping[k] || []).includes('geoId'));
+  // Meta columns add extra descriptive context to tooltips; a column already used as a value keeps its numeric role.
+  const metaCols = Object.keys(mapping).filter(k => (mapping[k] || []).includes('meta') && !valueCols.includes(k));
 
   const cleanedData = database.data.map(row => {
     const item = {
       label: labelCol ? row[labelCol] : 'Unknown',
-      geoId: geoCol ? String(row[geoCol]).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-') : null
+      geoId: geoCol ? String(row[geoCol]).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-') : null
     };
     valueCols.forEach(col => {
       const val = row[col];
@@ -251,6 +81,9 @@ export function generateDataVisualCode(database, mapping, engine, config) {
       const cleanVal = String(val).replace(/\s+/g, '').replace(',', '.').replace(/[^0-9.-]+/g, '');
       const parsed = parseFloat(cleanVal);
       item[col] = isNaN(parsed) ? 0 : parsed;
+    });
+    metaCols.forEach(col => {
+      item[col] = row[col];
     });
     return item;
   }).slice(0, 500);
@@ -260,36 +93,74 @@ export function generateDataVisualCode(database, mapping, engine, config) {
     engine,
     valueCols,
     geoCol,
+    metaCols,
     ...config
   });
 
   const width = config.chartWidth || '100%';
   const height = config.chartHeight || '500px';
 
-  let html = `
-<!-- Data-to-Visual WP Generator Code -->
-<div id="${uniqueId}" class="data-visual-container" style="width:${width}; min-height:${height}; background:#fff; border-radius:1.5rem; border:1px solid #e2e8f0; position:relative; overflow:hidden; padding:1.5rem; box-sizing:border-box; margin: 2rem 0; font-family: sans-serif;">
-  <div class="visual-placeholder" style="text-align:center; padding:2rem; color:#64748b; position:absolute; inset:0; display:flex; items-center; justify-content:center;">
-    <strong>Initializing Visual Engine...</strong>
-  </div>
-</div>
+  // Hidden-but-accessible data table: screen-reader / no-JS fallback (baseline WCAG coverage).
+  const a11yHeaderCols = [labelCol || 'Label', ...valueCols, ...metaCols];
+  const a11yRows = cleanedData.map(item => {
+    const cells = [item.label, ...valueCols.map(c => item[c]), ...metaCols.map(c => item[c])];
+    return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
+  }).join('');
+  const a11yTable = `<table class="infog-sr-table"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
 
-<style>
-  #${uniqueId} .map-county { transition: fill 0.3s, opacity 0.3s; cursor: pointer; stroke: #fff; stroke-width: 0.5px; }
-  #${uniqueId} .map-county:hover { opacity: 0.8; stroke: #334155; stroke-width: 1.5px; }
+  let css = `
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #${uniqueId} .map-county { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; stroke: #fff; stroke-width: 0.75px; }
+  #${uniqueId} .map-county:hover { opacity: 0.9; stroke: #6366f1; stroke-width: 2px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
   #${uniqueId} .map-tooltip {
     position: fixed;
     pointer-events: none;
-    background: rgba(15, 23, 42, 0.9);
+    background: #0f172a;
     color: white;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: bold;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 500;
     z-index: 9999;
     display: none;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(8px);
+    transition: opacity 0.2s;
   }
+  .infog-sr-table {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+  `;
+  if (config.minifyExport) css = minifyCss(css);
+
+  const headerHtml = (config.title || config.subtitle)
+    ? `<div class="dv-header" style="margin-bottom:1.25rem;">
+    ${config.title ? `<h3 style="margin:0 0 0.25rem 0; font-size:1.25rem; font-weight:800; color:#0f172a; letter-spacing:-0.01em;">${escapeHtml(config.title)}</h3>` : ''}
+    ${config.subtitle ? `<p style="margin:0; font-size:0.875rem; color:#64748b; font-weight:500;">${escapeHtml(config.subtitle)}</p>` : ''}
+  </div>`
+    : '';
+  const footerHtml = config.source
+    ? `<div class="dv-footer" style="margin-top:1rem; font-size:0.75rem; color:#94a3b8; font-weight:500;">Forrás: ${escapeHtml(config.source)}</div>`
+    : '';
+
+  let html = `
+<!-- Data-to-Visual WP Generator Code -->
+<div class="data-visual-wrap" role="group" aria-label="${escapeHtml(config.title || 'Interaktív adatvizualizáció')}" style="width:${width}; background:#ffffff; border-radius:2rem; border:1px solid #f1f5f9; box-sizing:border-box; padding:2rem; margin: 2.5rem 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.03);">
+  ${headerHtml}
+  <div id="${uniqueId}" class="data-visual-container" style="min-height:${height}; position:relative; overflow:hidden;">
+    <div class="visual-placeholder" style="text-align:center; padding:2rem; color:#94a3b8; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:1rem;">
+      <div style="width:40px; height:40px; border:3px solid #f1f5f9; border-top-color:#6366f1; border-radius:50%; animation: spin 0.8s linear infinite;"></div>
+      <strong style="font-weight:600; letter-spacing:-0.01em;">Initializing Visualization...</strong>
+    </div>
+  </div>
+  ${a11yTable}
+  ${footerHtml}
+</div>
+
+<style>
+${css}
 </style>
 
 <!-- Embedded Dataset -->
@@ -303,10 +174,9 @@ ${configJson}
 </script>`;
 
   if (engine === 'chart') {
-    html += `
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
+    let chartJs = `
   (function() {
+${FORMAT_VALUE_JS_SRC}
     const container = document.getElementById('${uniqueId}');
     const canvas = document.createElement('canvas');
     canvas.id = '${uniqueId}_canvas';
@@ -314,13 +184,12 @@ ${configJson}
     canvas.style.height = '100%';
     
     function renderChart() {
+      /* Visual Engine v2.1 - Pill Design */
       try {
         const dataEl = document.getElementById('${dataNodeId}');
         const configEl = document.getElementById('config_${uniqueId}');
-        if (!dataEl || !configEl) {
-          console.error('Visual Engine error: Missing data or config');
-          return;
-        }
+        if (!dataEl || !configEl) return;
+        
         const data = JSON.parse(dataEl.textContent);
         const cfg = JSON.parse(configEl.textContent);
         
@@ -329,16 +198,55 @@ ${configJson}
         const ctx = canvas.getContext('2d');
         
         const labels = data.map(d => d.label);
+        
+        // Exact Vibrant Palette (Informed by latest dashboard reference)
+        const palette = [
+          '#06b6d4', // Cyan (Teal-ish)
+          '#f97316', // Orange
+          '#fb7185', // Rose/Coral
+          '#6366f1', // Indigo
+          '#14b8a6', // Teal
+          '#f59e0b', // Amber
+          '#a855f7'  // Purple
+        ];
+        
         const datasets = cfg.valueCols.map((col, idx) => {
-          const color = (cfg.seriesColors && cfg.seriesColors[col]) || '#4f46e5';
+          const baseColor = (cfg.seriesColors && cfg.seriesColors[col]) || palette[idx % palette.length];
+          
+          // Create Gradient for Line/Area charts
+          let backgroundColor = baseColor + '15';
+          if (cfg.chartType === 'line') {
+             const gradient = ctx.createLinearGradient(0, 0, 0, 400); // Larger gradient range
+             gradient.addColorStop(0, baseColor + '45'); // More opaque at top
+             gradient.addColorStop(1, baseColor + '00');
+             backgroundColor = gradient;
+          } else if (cfg.chartType === 'bar') {
+             // Subtle vertical gradient for bars too
+             const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+             gradient.addColorStop(0, baseColor);
+             gradient.addColorStop(1, baseColor + 'ee');
+             backgroundColor = gradient;
+          }
+
           return {
             label: col,
             data: data.map(d => d[col]),
-            backgroundColor: color + (cfg.chartType === 'pie' ? '' : '33'),
-            borderColor: color,
-            borderWidth: cfg.chartType === 'line' ? 3 : 1,
-            fill: cfg.chartType === 'line' ? false : true,
-            tension: 0.4
+            backgroundColor: (cfg.chartType === 'pie' || cfg.chartType === 'doughnut') ? palette : backgroundColor,
+            borderColor: baseColor,
+            borderWidth: 2,
+            fill: true,
+            tension: 0.45,
+            borderRadius: 100, // True pill shape
+            borderSkipped: false,
+            barThickness: 'flex',
+            barPercentage: 0.5, // Slimmer bars like in the reference
+            categoryPercentage: 0.8,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: baseColor,
+            pointBorderWidth: 2.5,
+            pointRadius: 4.5,
+            pointHoverRadius: 7,
+            pointStyle: 'circle'
           };
         });
 
@@ -348,41 +256,88 @@ ${configJson}
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 30, bottom: 10, left: 15, right: 15 } },
             plugins: { 
               legend: { 
-                display: datasets.length > 1,
+                display: datasets.length > 1 || cfg.chartType === 'pie' || cfg.chartType === 'doughnut',
                 position: 'top',
-                labels: { font: { weight: 'bold', family: 'sans-serif' } }
+                align: 'end',
+                labels: { 
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  padding: 25,
+                  font: { size: 12, weight: '700', family: "'-apple-system', sans-serif" },
+                  color: '#64748b',
+                  boxWidth: 7,
+                  boxHeight: 7
+                }
+              },
+              tooltip: {
+                backgroundColor: '#0f172a',
+                padding: 14,
+                titleFont: { size: 13, weight: '800' },
+                bodyFont: { size: 13 },
+                cornerRadius: 15,
+                displayColors: true,
+                usePointStyle: true,
+                boxPadding: 8,
+                callbacks: {
+                  label: (item) => {
+                    const raw = (item.parsed && typeof item.parsed === 'object') ? (item.parsed.y ?? item.parsed.r) : item.parsed;
+                    return item.dataset.label + ': ' + formatValue(raw, cfg);
+                  },
+                  afterBody: (items) => {
+                    if (!cfg.metaCols || !cfg.metaCols.length || !items.length) return [];
+                    const row = data[items[0].dataIndex];
+                    return cfg.metaCols.map(mc => mc + ': ' + row[mc]);
+                  }
+                }
               }
             },
-            scales: cfg.chartType === 'pie' || cfg.chartType === 'radar' ? {} : {
-              y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-              x: { grid: { display: false } }
+            scales: cfg.chartType === 'pie' || cfg.chartType === 'doughnut' || cfg.chartType === 'radar' ? {} : {
+              y: {
+                beginAtZero: true,
+                border: { display: false },
+                grid: { color: '#f1f5f9' },
+                ticks: { color: '#94a3b8', font: { size: 11, weight: '700' }, padding: 12, callback: (v) => formatValue(v, cfg) }
+              },
+              x: { 
+                border: { display: false },
+                grid: { display: false },
+                ticks: { color: '#94a3b8', font: { size: 11, weight: '700' }, padding: 12 }
+              }
             }
           }
         });
+        window.__RENDER_READY__ = true;
       } catch (err) {
         console.error('Visual Engine initialization failed:', err);
         container.innerHTML = '<div style="padding:1rem;color:#ef4444;text-align:center;">Visualization error. Please check your data.</div>';
       }
     }
 
-    if (typeof Chart !== 'undefined') { 
-      renderChart(); 
+    if (typeof Chart !== 'undefined') {
+      renderChart();
     } else {
       const script = document.querySelector('script[src*="chart.js"]');
       if (script) {
         script.addEventListener('load', renderChart);
-        // Fallback for cached scripts
         setTimeout(() => { if (typeof Chart !== 'undefined' && container.querySelector('.visual-placeholder')) renderChart(); }, 1500);
       }
     }
   })();
+`;
+    if (config.minifyExport) chartJs = minifyJs(chartJs);
+    html += `
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+${chartJs}
 </script>`;
   } else if (engine === 'map') {
-    html += `
-<script>
+    const selectedMap = MAP_TEMPLATES[config.mapTemplate] || MAP_TEMPLATES['hu-counties'];
+    let mapJs = `
 (function() {
+${FORMAT_VALUE_JS_SRC}
   const container = document.getElementById('${uniqueId}');
   const data = ${minifiedJson};
   const cfg = ${configJson};
@@ -415,56 +370,34 @@ ${configJson}
 
       // Build legend
       const legend = document.createElement('div');
-      legend.style.cssText = 'position:absolute; bottom:1rem; right:1rem; background:rgba(255,255,255,0.8); padding:0.5rem; border-radius:0.5rem; font-size:0.75rem; border:1px solid #e2e8f0; z-index:100;';
-      legend.innerHTML = '<div style="font-weight:bold; margin-bottom:0.25rem;">' + valueCol + '</div>' +
-        '<div style="display:flex; align-items:center; gap:0.5rem;">' +
-          '<span>' + minVal + '</span>' +
-          '<div style="width:60px; height:10px; background:linear-gradient(to right, ' + (cfg.heatMin || '#e2e8f0') + ', ' + (cfg.heatMax || '#4f46e5') + ');"></div>' +
-          '<span>' + maxVal + '</span>' +
+      legend.style.cssText = 'position:absolute; bottom:2rem; right:2rem; background:rgba(255,255,255,0.95); padding:1rem; border-radius:1.25rem; font-size:0.75rem; border:1px solid #f1f5f9; z-index:100; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); backdrop-filter:blur(8px);';
+      legend.innerHTML = '<div style="font-weight:800; margin-bottom:0.75rem; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:flex; align-items:center; gap:0.5rem;"><div style="width:8px; height:8px; border-radius:50%; background:#6366f1;"></div>' + (cfg.legendLabel || valueCol) + '</div>' +
+        '<div style="display:flex; align-items:center; gap:1rem;">' +
+          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(minVal, cfg) + '</span>' +
+          '<div style="width:120px; height:6px; border-radius:10px; background:linear-gradient(to right, ' + (cfg.heatMin || '#f1f5f9') + ', ' + (cfg.heatMax || '#6366f1') + ');"></div>' +
+          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(maxVal, cfg) + '</span>' +
         '</div>';
 
       const tooltip = document.createElement('div');
       tooltip.className = 'map-tooltip';
       document.body.appendChild(tooltip);
 
-      // Create SVG
+      // Create SVG (only the selected template's region data is embedded, not every map)
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      let regions = [];
-      let viewBox = "0 0 1000 600";
-      
-      switch(cfg.mapTemplate) {
-        case 'usa': 
-          regions = ${JSON.stringify(USA_STATES)}; 
-          viewBox = "0 0 1000 800";
-          break;
-        case 'world': 
-          regions = ${JSON.stringify(WORLD_COUNTRIES)}; 
-          viewBox = "0 0 1000 600";
-          break;
-        case 'africa': 
-          regions = ${JSON.stringify(AFRICA_COUNTRIES)}; 
-          viewBox = "0 0 1000 800";
-          break;
-        case 'eu': 
-          regions = ${JSON.stringify(EU_MEMBERS)}; 
-          viewBox = "0 0 1050 900";
-          break;
-        case 'middle-east': 
-          regions = ${JSON.stringify(MIDDLE_EAST)}; 
-          viewBox = "0 0 1000 800";
-          break;
-        default: 
-          regions = ${JSON.stringify(HUNGARY_COUNTIES)};
-          viewBox = "0 0 1000 600";
-      }
+      const regions = ${JSON.stringify(selectedMap.regions)};
+      const viewBox = ${JSON.stringify(selectedMap.viewBox)};
 
       svg.setAttribute('viewBox', viewBox);
+      const regionOwnNames = {};
       regions.forEach(reg => {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute('d', reg.path);
         path.setAttribute('id', reg.id);
-        path.setAttribute('class', 'map-county map-region-' + reg.id + ' map-parent-' + (reg.parentId || reg.id));
-        path.setAttribute('fill', '#f1f5f9');
+        const safeId = reg.id.toLowerCase();
+        const safeParentId = (reg.parentId || reg.id).toLowerCase();
+        path.setAttribute('class', 'map-county map-region-' + safeId + ' map-parent-' + safeParentId);
+        path.setAttribute('fill', '#f8fafc');
+        regionOwnNames[safeId] = reg.name;
         svg.appendChild(path);
       });
 
@@ -472,38 +405,68 @@ ${configJson}
       container.appendChild(svg);
       container.appendChild(legend);
 
-      console.log('Map Engine: Data items to process:', data.length);
-      let coloredCount = 0;
+      // Slightly expand every region from its own visual center. This is a standard fix for
+      // hairline "sliver" gaps between independently-digitized neighboring borders (common with
+      // simplified/generalized boundary data) — imperceptible for each shape's own outline, but
+      // enough to close small seams instead of showing background through them.
+      svg.querySelectorAll('path').forEach(p => {
+        try {
+          const b = p.getBBox();
+          const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+          p.setAttribute('transform', 'translate(' + cx + ',' + cy + ') scale(1.01) translate(' + (-cx) + ',' + (-cy) + ')');
+        } catch (err) {}
+      });
 
+      // Group data rows by normalized geoId so every region can show a tooltip, whether or
+      // not it has matching data.
+      const byGeoId = {};
       data.forEach(item => {
         if (!item.geoId) return;
-        const paths = svg.querySelectorAll('.map-parent-' + item.geoId);
-        if (paths.length) {
-          const val = item[valueCol];
-          const factor = range <= 0 ? 0.5 : (val - minVal) / range;
-          const color = interpolateColor(cfg.heatMin || '#e2e8f0', cfg.heatMax || '#4f46e5', factor);
-          
-          coloredCount++;
-          paths.forEach(p => {
-            p.setAttribute('fill', color);
-            p.addEventListener('mouseenter', (e) => {
-              tooltip.style.display = 'block';
-              tooltip.innerHTML = '<strong>' + item.label + '</strong><br>' + valueCol + ': ' + val;
-            });
-            p.addEventListener('mousemove', (e) => {
-              tooltip.style.left = (e.clientX + 10) + 'px';
-              tooltip.style.top = (e.clientY - 40) + 'px';
-            });
-            p.addEventListener('mouseleave', () => {
-              tooltip.style.display = 'none';
-            });
-          });
-        }
+        const key = String(item.geoId).toLowerCase();
+        (byGeoId[key] = byGeoId[key] || []).push(item);
       });
-      console.log('Map Engine: Regions colored:', coloredCount);
+
+      svg.querySelectorAll('path').forEach(p => {
+        const safeParentId = (p.getAttribute('class').match(/map-parent-(\\S+)/) || [])[1] || '';
+        const items = byGeoId[safeParentId] || [];
+        const name = regionOwnNames[p.id] || p.id;
+        let color = null;
+
+        if (items.length) {
+          const val = items[0][valueCol];
+          const factor = range <= 0 ? 0.5 : (val - minVal) / range;
+          color = interpolateColor(cfg.heatMin || '#f1f5f9', cfg.heatMax || '#6366f1', factor);
+          p.setAttribute('fill', color);
+        }
+
+        p.addEventListener('mouseenter', () => {
+          tooltip.style.display = 'block';
+          tooltip.style.opacity = '1';
+          const dot = '<div style="width:8px; height:8px; border-radius:50%; background:' + (color || '#cbd5e1') + ';"></div>';
+          if (items.length) {
+            const item = items[0];
+            const val = item[valueCol];
+            const metaHtml = (cfg.metaCols || []).map(mc => '<div style="font-size:11px; color:#94a3b8; margin-top:4px;">' + mc + ': ' + item[mc] + '</div>').join('');
+            tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + item.label + '</div>' +
+                               '<div style="font-size:18px; font-weight:900; letter-spacing:-0.02em;">' + formatValue(val, cfg) + '</div>' + metaHtml;
+          } else {
+            tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + name + '</div>' +
+                               '<div style="font-size:13px; font-weight:700; color:#94a3b8;">Nincs adat</div>';
+          }
+        });
+        p.addEventListener('mousemove', (e) => {
+          tooltip.style.left = (e.clientX + 15) + 'px';
+          tooltip.style.top = (e.clientY - 70) + 'px';
+        });
+        p.addEventListener('mouseleave', () => {
+          tooltip.style.opacity = '0';
+          setTimeout(() => { if(tooltip.style.opacity === '0') tooltip.style.display = 'none'; }, 200);
+        });
+      });
+      window.__RENDER_READY__ = true;
     } catch (err) {
       console.error('Map initialization error:', err);
-      container.innerHTML = '<div style="padding:1rem;color:#ef4444;text-align:center;">Map generation error. Please check your data.</div>';
+      container.innerHTML = '<div style="padding:1rem;color:#ef4444;text-align:center;font-weight:bold;">Map generation error.</div>';
     }
   }
 
@@ -513,10 +476,13 @@ ${configJson}
     document.addEventListener('DOMContentLoaded', initMap);
   }
 })();
-</script>
 `;
+    if (config.minifyExport) mapJs = minifyJs(mapJs);
+    html += `
+<script>
+${mapJs}
+</script>`;
   }
 
-  html += '</div>';
   return html.trim();
 }

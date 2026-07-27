@@ -1,0 +1,15 @@
+{
+  "name": "web_infografika-server",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Stateless PNG render service for web_infografika embeds (no DB, no auth, no persistence).",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "puppeteer": "^23.9.0"
+  }
+}
