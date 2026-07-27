@@ -6,3 +6,7 @@ compatibility_date = "2026-01-01"
 binding = "DB"
 database_name = "web-infografika-db"
 database_id = "2275ee5e-f8f3-4042-90b8-dc9610e33827"
+
+[[kv_namespaces]]
+binding = "VISUALS_KV"
+id = "38683784bde74df5a1397925dbdec64e"

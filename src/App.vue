@@ -8,6 +8,7 @@ import AuthCard from './components/AuthCard.vue'
 import { generateDataVisualCode, generateWordPressSafeMapCode } from './utils/exporter.js'
 import { suggestMapping } from './utils/typeDetect.js'
 import { exportPng, exportSvgFromIframe } from './utils/pngExport.js'
+import { createHostedLink } from './utils/hostedLink.js'
 
 const currentUser = ref(null)
 const loadingUser = ref(true)
@@ -202,6 +203,8 @@ const isExportingPng = ref(false)
 const exportMode = ref('script') // 'script' | 'wp-safe'
 const wpImageUrl = ref('')
 const lastSnapshot = ref(null) // { database, mapping, config } frozen at generate time
+const hostedLinkUrl = ref('')
+const isCreatingLink = ref(false)
 
 const handleGenerate = () => {
   if (!activeDatabase.value) return alert('Please drop a Database file first!')
@@ -220,7 +223,26 @@ const handleGenerate = () => {
   )
   exportMode.value = 'script'
   wpImageUrl.value = ''
+  hostedLinkUrl.value = ''
   showModal.value = true
+}
+
+const handleCreateLink = async () => {
+  isCreatingLink.value = true
+  try {
+    const token = localStorage.getItem('authToken')
+    const { url } = await createHostedLink(generatedCode.value, token)
+    hostedLinkUrl.value = url
+  } catch (err) {
+    alert('Link generálása sikertelen: ' + err.message)
+  } finally {
+    isCreatingLink.value = false
+  }
+}
+
+const copyHostedLink = () => {
+  navigator.clipboard.writeText(hostedLinkUrl.value)
+  alert('Link kimásolva!')
 }
 
 const wpSafeCode = computed(() => {
@@ -486,6 +508,23 @@ const handleSvgExport = async () => {
           >
             SVG letöltése
           </button>
+          <button
+            @click="handleCreateLink"
+            :disabled="isCreatingLink"
+            class="flex-1 min-w-[160px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+          >
+            {{ isCreatingLink ? 'Link generálása...' : 'Link generálása (WordPress-hez)' }}
+          </button>
+        </div>
+
+        <div v-if="hostedLinkUrl" class="px-8 pb-8 bg-white shrink-0">
+          <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+            <p class="text-xs font-bold text-emerald-800 uppercase tracking-widest mb-2">Illeszd be ezt a linket saját sorban a WordPress cikkbe</p>
+            <div class="flex items-center gap-2">
+              <input readonly :value="hostedLinkUrl" class="flex-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-sm font-mono text-emerald-900" />
+              <button @click="copyHostedLink" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">Másolás</button>
+            </div>
+          </div>
         </div>
     </div>
   </div>
