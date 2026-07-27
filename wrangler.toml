@@ -1,0 +1,8 @@
+name = "web-infografika"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "web-infografika-db"
+database_id = "2275ee5e-f8f3-4042-90b8-dc9610e33827"
