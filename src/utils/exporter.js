@@ -59,18 +59,30 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-export function generateDataVisualCode(database, mapping, engine, config) {
-  const uniqueId = `div_${Math.random().toString(36).substring(2, 9)}`;
-  const dataNodeId = `data_${Math.random().toString(36).substring(2, 9)}`;
+function formatValueStatic(val, cfg) {
+  if (typeof val !== 'number' || isNaN(val)) return val;
+  const nf = (cfg && cfg.numberFormat) || {};
+  let n = val;
+  if (nf.decimals != null) n = Number(n.toFixed(nf.decimals));
+  let s;
+  if (nf.type === 'percent') s = n.toLocaleString() + '%';
+  else if (nf.type === 'currency') s = n.toLocaleString() + ' Ft';
+  else if (nf.type === 'plain') s = String(n);
+  else s = n.toLocaleString();
+  return s + (nf.suffix ? ' ' + nf.suffix : '');
+}
 
-  // Filter labels and multiple values
+function deriveColumns(mapping) {
   const labelCol = Object.keys(mapping).find(k => (mapping[k] || []).includes('label'));
   const valueCols = Object.keys(mapping).filter(k => (mapping[k] || []).includes('value'));
   const geoCol = Object.keys(mapping).find(k => (mapping[k] || []).includes('geoId'));
   // Meta columns add extra descriptive context to tooltips; a column already used as a value keeps its numeric role.
   const metaCols = Object.keys(mapping).filter(k => (mapping[k] || []).includes('meta') && !valueCols.includes(k));
+  return { labelCol, valueCols, geoCol, metaCols };
+}
 
-  const cleanedData = database.data.map(row => {
+function buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }) {
+  return database.data.map(row => {
     const item = {
       label: labelCol ? row[labelCol] : 'Unknown',
       geoId: geoCol ? String(row[geoCol]).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-') : null
@@ -87,6 +99,136 @@ export function generateDataVisualCode(database, mapping, engine, config) {
     });
     return item;
   }).slice(0, 500);
+}
+
+// Renders each region's path off-screen to read its real bounding box (getBBox), so hotspot
+// placement in the JS-free WordPress export matches the shape regardless of viewBox distortion.
+function computeRegionLayout(regions, viewBox) {
+  const parts = viewBox.split(' ').map(Number);
+  const vbWidth = parts[2], vbHeight = parts[3];
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', viewBox);
+  svg.style.position = 'absolute';
+  svg.style.left = '-99999px';
+  svg.style.top = '0';
+  svg.style.width = vbWidth + 'px';
+  svg.style.height = vbHeight + 'px';
+  document.body.appendChild(svg);
+
+  const layout = {};
+  regions.forEach(reg => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', reg.path);
+    svg.appendChild(path);
+    try {
+      const b = path.getBBox();
+      const safeId = reg.id.toLowerCase();
+      const safeParentId = (reg.parentId || reg.id).toLowerCase();
+      layout[safeId] = {
+        parentId: safeParentId,
+        name: reg.name,
+        xPct: (b.x / vbWidth) * 100,
+        yPct: (b.y / vbHeight) * 100,
+        wPct: (b.width / vbWidth) * 100,
+        hPct: (b.height / vbHeight) * 100
+      };
+    } catch (err) {
+      // Malformed path data - skip this region's hotspot rather than fail the whole export.
+    }
+  });
+
+  document.body.removeChild(svg);
+  return layout;
+}
+
+/**
+ * JavaScript-free map export for platforms (like WordPress for non-admin roles) that strip
+ * <script> tags from post content. Takes a pre-uploaded map image URL and overlays invisible,
+ * percentage-positioned hotspot divs with pure-CSS :hover tooltips - no script tag anywhere.
+ */
+export function generateWordPressSafeMapCode(database, mapping, config, imageUrl) {
+  const uniqueId = `wpm_${Math.random().toString(36).substring(2, 9)}`;
+  const cols = deriveColumns(mapping);
+  const { valueCols, metaCols } = cols;
+  const cleanedData = buildCleanedData(database, cols);
+  const valueCol = config.heatValueCol || valueCols[0];
+
+  const selectedMap = MAP_TEMPLATES[config.mapTemplate] || MAP_TEMPLATES['hu-counties'];
+  const layout = computeRegionLayout(selectedMap.regions, selectedMap.viewBox);
+
+  const byGeoId = {};
+  cleanedData.forEach(item => {
+    if (!item.geoId) return;
+    const key = String(item.geoId).toLowerCase();
+    (byGeoId[key] = byGeoId[key] || []).push(item);
+  });
+
+  const hotspotsHtml = Object.values(layout).map(info => {
+    const items = byGeoId[info.parentId] || [];
+    const hotW = Math.max(info.wPct * 0.6, 3).toFixed(2);
+    const hotH = Math.max(info.hPct * 0.6, 3).toFixed(2);
+    const cx = (info.xPct + info.wPct / 2).toFixed(2);
+    const cy = (info.yPct + info.hPct / 2).toFixed(2);
+
+    let tooltipInner;
+    if (items.length && valueCol) {
+      const item = items[0];
+      const metaHtml = metaCols.map(mc => `<div style="font-size:11px;color:#94a3b8;margin-top:2px;">${escapeHtml(mc)}: ${escapeHtml(item[mc])}</div>`).join('');
+      tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(item.label)}</div><div style="font-size:16px;font-weight:900;">${escapeHtml(formatValueStatic(item[valueCol], config))}</div>${metaHtml}`;
+    } else {
+      tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(info.name)}</div><div style="font-size:12px;color:#94a3b8;">Nincs adat</div>`;
+    }
+
+    return `  <div class="wp-hotspot-${uniqueId}" style="position:absolute; left:${cx}%; top:${cy}%; width:${hotW}%; height:${hotH}%; transform:translate(-50%,-50%);">
+    <div class="wp-tip-${uniqueId}" style="display:none; position:absolute; bottom:110%; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 14px; border-radius:12px; white-space:nowrap; box-shadow:0 10px 25px rgba(0,0,0,0.15); z-index:20;">${tooltipInner}</div>
+  </div>`;
+  }).join('\n');
+
+  const headerHtml = (config.title || config.subtitle)
+    ? `<div style="margin-bottom:1.25rem;">
+    ${config.title ? `<h3 style="margin:0 0 0.25rem 0; font-size:1.25rem; font-weight:800; color:#0f172a; letter-spacing:-0.01em;">${escapeHtml(config.title)}</h3>` : ''}
+    ${config.subtitle ? `<p style="margin:0; font-size:0.875rem; color:#64748b; font-weight:500;">${escapeHtml(config.subtitle)}</p>` : ''}
+  </div>`
+    : '';
+  const footerHtml = config.source
+    ? `<div style="margin-top:1rem; font-size:0.75rem; color:#94a3b8; font-weight:500;">Forr\u00e1s: ${escapeHtml(config.source)}</div>`
+    : '';
+
+  const a11yHeaderCols = [cols.labelCol || 'Label', ...valueCols, ...metaCols];
+  const a11yRows = cleanedData.map(item => {
+    const cells = [item.label, ...valueCols.map(c => item[c]), ...metaCols.map(c => item[c])];
+    return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
+  }).join('');
+  const a11yTable = `<table class="infog-sr-table"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
+
+  const html = `<!-- Data-to-Visual WordPress-Safe Export (no <script> tags) -->
+<div style="width:100%; background:#ffffff; border-radius:2rem; border:1px solid #f1f5f9; box-sizing:border-box; padding:2rem; margin:2.5rem 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; box-shadow:0 25px 50px -12px rgba(0,0,0,0.03);">
+  ${headerHtml}
+  <div style="position:relative; width:100%;">
+    <img src="${escapeHtml(imageUrl || 'IDE_ILLESZD_A_FELTOLTOTT_KEP_URL-JET')}" alt="${escapeHtml(config.title || 'T\u00e9rk\u00e9p')}" style="width:100%; height:auto; display:block; border-radius:1rem;">
+${hotspotsHtml}
+  </div>
+  ${a11yTable}
+  ${footerHtml}
+</div>
+<style>
+  .wp-hotspot-${uniqueId} { cursor:pointer; }
+  .wp-hotspot-${uniqueId}:hover .wp-tip-${uniqueId} { display:block; }
+  .infog-sr-table {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+</style>`;
+
+  return html.trim();
+}
+
+export function generateDataVisualCode(database, mapping, engine, config) {
+  const uniqueId = `div_${Math.random().toString(36).substring(2, 9)}`;
+  const dataNodeId = `data_${Math.random().toString(36).substring(2, 9)}`;
+
+  const { labelCol, valueCols, geoCol, metaCols } = deriveColumns(mapping);
+  const cleanedData = buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols });
 
   const minifiedJson = JSON.stringify(cleanedData);
   const configJson = JSON.stringify({
