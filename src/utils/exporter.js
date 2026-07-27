@@ -112,7 +112,7 @@ export function generateDataVisualCode(database, mapping, engine, config) {
   @keyframes spin { to { transform: rotate(360deg); } }
   #${uniqueId} .map-county { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; stroke: #fff; stroke-width: 0.75px; }
   #${uniqueId} .map-county:hover { opacity: 0.9; stroke: #6366f1; stroke-width: 2px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
-  #${uniqueId} .map-tooltip {
+  .map-tooltip-${uniqueId} {
     position: fixed;
     pointer-events: none;
     background: #0f172a;
@@ -379,7 +379,7 @@ ${FORMAT_VALUE_JS_SRC}
         '</div>';
 
       const tooltip = document.createElement('div');
-      tooltip.className = 'map-tooltip';
+      tooltip.className = 'map-tooltip-${uniqueId}';
       document.body.appendChild(tooltip);
 
       // Create SVG (only the selected template's region data is embedded, not every map)
@@ -455,8 +455,22 @@ ${FORMAT_VALUE_JS_SRC}
           }
         });
         p.addEventListener('mousemove', (e) => {
-          tooltip.style.left = (e.clientX + 15) + 'px';
-          tooltip.style.top = (e.clientY - 70) + 'px';
+          const rect = container.getBoundingClientRect();
+          const margin = 8;
+          const tw = tooltip.offsetWidth;
+          const th = tooltip.offsetHeight;
+
+          let left = e.clientX - tw / 2;
+          const minLeft = rect.left + margin;
+          const maxLeft = rect.right - tw - margin;
+          if (left < minLeft) left = minLeft;
+          if (left > maxLeft) left = maxLeft;
+
+          let top = e.clientY - th - 16;
+          if (top < rect.top + margin) top = e.clientY + 16;
+
+          tooltip.style.left = left + 'px';
+          tooltip.style.top = top + 'px';
         });
         p.addEventListener('mouseleave', () => {
           tooltip.style.opacity = '0';
