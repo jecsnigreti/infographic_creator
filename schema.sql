@@ -5,8 +5,11 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   plan TEXT NOT NULL DEFAULT 'free',
   plan_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_users_stripe_customer ON users(stripe_customer_id);
 
 -- One row per metered action (e.g. "hosted_link_created"). Monthly usage is derived by counting
 -- rows since the start of the current month, rather than a running counter column, so it resets

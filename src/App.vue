@@ -244,12 +244,40 @@ const handleCreateLink = async () => {
   isCreatingLink.value = true
   try {
     const token = localStorage.getItem('authToken')
-    const { url } = await createHostedLink(generatedCode.value, token)
+    const { url, plan, used, limit } = await createHostedLink(generatedCode.value, token)
     hostedLinkUrl.value = url
+    if (currentUser.value) {
+      currentUser.value = { ...currentUser.value, plan, usage: { hostedLinksUsed: used, hostedLinksLimit: limit } }
+    }
   } catch (err) {
-    alert('Link generálása sikertelen: ' + err.message)
+    if (err.status === 402) {
+      if (confirm(err.message + '\n\nMegnyitod a Pro csomagra váltást?')) {
+        handleUpgrade()
+      }
+    } else {
+      alert('Link generálása sikertelen: ' + err.message)
+    }
   } finally {
     isCreatingLink.value = false
+  }
+}
+
+const isUpgrading = ref(false)
+const handleUpgrade = async () => {
+  isUpgrading.value = true
+  try {
+    const token = localStorage.getItem('authToken')
+    const res = await fetch('/api/billing/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(body.message || 'A fizetési folyamat elindítása sikertelen.')
+    window.location.href = body.url
+  } catch (err) {
+    alert(err.message)
+  } finally {
+    isUpgrading.value = false
   }
 }
 
@@ -320,7 +348,7 @@ const handleSvgExport = async () => {
   </div>
   <div v-else class="flex h-screen overflow-hidden bg-[#F4F7FE] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
     <div class="flex-1 flex flex-col min-w-0">
-      <TopNavBar title="Database Source" :currentUser="currentUser" @generate="handleGenerate" @logout="handleLogout" />
+      <TopNavBar title="Database Source" :currentUser="currentUser" @generate="handleGenerate" @logout="handleLogout" @upgrade="handleUpgrade" />
 
       <!-- Main Dashboard Area -->
       <main class="flex-1 overflow-auto p-4 md:p-8 pt-0 relative space-y-6 md:space-y-8 flex flex-col">
