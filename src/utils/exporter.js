@@ -107,28 +107,53 @@ function detectDateColumns(database, valueCols, columnTypes = {}) {
   return dateCols;
 }
 
+const HU_MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
+
+// Broad, best-effort date parser - not a full i18n date library, but covers the realistic spread
+// of what ends up in a spreadsheet: ISO, dotted/slashed European (day-first) and Hungarian
+// (year-first) forms, compact digits-only, Hungarian long-form month names, and finally whatever
+// the browser's own Date.parse can make sense of (English month names, RFC formats, etc.).
 function parseDateValue(raw) {
   const s = String(raw ?? '').trim();
   if (!s) return NaN;
-  if (/^\d{4}-\d{1,2}-\d{1,2}/.test(s)) {
-    const t = Date.parse(s);
-    return isNaN(t) ? NaN : t;
-  }
-  const m = s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/);
-  if (m) {
-    let [, d, mo, y] = m;
-    if (y.length === 2) y = '20' + y;
-    const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
-    return isNaN(t) ? NaN : t;
-  }
-  // Compact YYYYMMDD (no separators) - not auto-detected as a date, but a plausible value once
-  // the user explicitly overrides a column's type to "Dátum".
+
+  // Compact YYYYMMDD (no separators).
   const compact = s.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (compact) {
     const [, y, mo, d] = compact;
     const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
     return isNaN(t) ? NaN : t;
   }
+
+  // Year-first, any of - . / as separator: 2024-01-15, 2024.01.15, 2024/01/15.
+  let m = s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if (m) {
+    const [, y, mo, d] = m;
+    const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
+    return isNaN(t) ? NaN : t;
+  }
+
+  // Day-first (European/Hungarian convention), 2-4 digit year: 15.01.2024, 15/01/24, 15-01-2024.
+  m = s.match(/^(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{2,4})$/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = '20' + y;
+    const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
+    return isNaN(t) ? NaN : t;
+  }
+
+  // Hungarian long form: "2024. január 15." or "2024 január 15".
+  m = s.toLowerCase().match(/^(\d{4})\.?\s*([a-záéíóöőúüű]+)\s*(\d{1,2})\.?/);
+  if (m) {
+    const [, y, monthName, d] = m;
+    const monthIdx = HU_MONTHS.findIndex(name => monthName.startsWith(name.slice(0, 4)));
+    if (monthIdx > -1) {
+      const t = new Date(Number(y), monthIdx, Number(d)).getTime();
+      return isNaN(t) ? NaN : t;
+    }
+  }
+
+  // Last resort: whatever the browser's native parser recognizes (e.g. "Jan 15, 2024").
   const t = Date.parse(s);
   return isNaN(t) ? NaN : t;
 }
@@ -143,13 +168,17 @@ function buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }, d
       const val = row[col];
       if (dateCols.has(col)) {
         const t = parseDateValue(val);
-        item[col] = isNaN(t) ? 0 : t;
+        // null (not 0) marks "no usable value" so it's excluded from the color range and
+        // rendered as a distinct "no data" grey instead of being treated as a real data point.
+        item[col] = isNaN(t) ? null : t;
         return;
       }
+      const raw = String(val ?? '').trim();
+      if (raw === '') { item[col] = null; return; }
       // Robust parsing: handle Hungarian space-separated numbers and commas
-      const cleanVal = String(val).replace(/\s+/g, '').replace(',', '.').replace(/[^0-9.-]+/g, '');
+      const cleanVal = raw.replace(/\s+/g, '').replace(',', '.').replace(/[^0-9.-]+/g, '');
       const parsed = parseFloat(cleanVal);
-      item[col] = isNaN(parsed) ? 0 : parsed;
+      item[col] = isNaN(parsed) ? null : parsed;
     });
     metaCols.forEach(col => {
       item[col] = row[col];
@@ -231,9 +260,9 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
     const cy = (info.yPct + info.hPct / 2).toFixed(2);
 
     let tooltipInner;
-    if (items.length && valueCol) {
+    if (items.length && valueCol && typeof items[0][valueCol] === 'number') {
       const item = items[0];
-      const metaHtml = metaCols.map(mc => `<div style="font-size:${metaFontSize}px;color:#94a3b8;margin-top:2px;">${escapeHtml(mc)}: ${escapeHtml(item[mc])}</div>`).join('');
+      const metaHtml = metaCols.map(mc => `<div style="font-size:${metaFontSize}px;color:#94a3b8;margin-top:2px;">${escapeHtml(item[mc])}</div>`).join('');
       tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(item.label)}</div><div style="font-size:16px;font-weight:900;">${escapeHtml(formatValueStatic(item[valueCol], config, heatValueIsDate))}</div>${metaHtml}`;
     } else {
       tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(info.name)}</div><div style="font-size:12px;color:#94a3b8;">Nincs adat</div>`;
@@ -495,7 +524,7 @@ ${FORMAT_VALUE_JS_SRC}
                   afterBody: (items) => {
                     if (!cfg.metaCols || !cfg.metaCols.length || !items.length) return [];
                     const row = data[items[0].dataIndex];
-                    return cfg.metaCols.map(mc => mc + ': ' + row[mc]);
+                    return cfg.metaCols.map(mc => row[mc]);
                   }
                 }
               }
@@ -569,6 +598,7 @@ ${FORMAT_VALUE_JS_SRC}
         return;
       }
       
+      const NO_DATA_COLOR = '#e2e8f0';
       const values = data.map(d => d[valueCol]).filter(v => typeof v === 'number');
       const minVal = values.length ? Math.min(...values) : 0;
       const maxVal = values.length ? Math.max(...values) : 100;
@@ -602,7 +632,7 @@ ${FORMAT_VALUE_JS_SRC}
         const safeId = reg.id.toLowerCase();
         const safeParentId = (reg.parentId || reg.id).toLowerCase();
         path.setAttribute('class', 'map-county map-region-' + safeId + ' map-parent-' + safeParentId);
-        path.setAttribute('fill', '#f8fafc');
+        path.setAttribute('fill', NO_DATA_COLOR);
         regionOwnNames[safeId] = reg.name;
         svg.appendChild(path);
       });
@@ -638,22 +668,25 @@ ${FORMAT_VALUE_JS_SRC}
         const name = regionOwnNames[p.id] || p.id;
         let color = null;
 
-        if (items.length) {
+        const hasValue = items.length && typeof items[0][valueCol] === 'number';
+        if (hasValue) {
           const val = items[0][valueCol];
           const factor = range <= 0 ? 0.5 : (val - minVal) / range;
           color = interpolateColor(cfg.heatMin || '#f1f5f9', cfg.heatMax || '#6366f1', factor);
           p.setAttribute('fill', color);
+        } else {
+          p.setAttribute('fill', NO_DATA_COLOR);
         }
 
         p.addEventListener('mouseenter', () => {
           tooltip.style.display = 'block';
           tooltip.style.opacity = '1';
-          const dot = '<div style="width:8px; height:8px; border-radius:50%; background:' + (color || '#cbd5e1') + ';"></div>';
-          if (items.length) {
+          const dot = '<div style="width:8px; height:8px; border-radius:50%; background:' + (color || NO_DATA_COLOR) + ';"></div>';
+          if (hasValue) {
             const item = items[0];
             const val = item[valueCol];
             const metaFontSize = cfg.metaFontSize || 11;
-            const metaHtml = (cfg.metaCols || []).map(mc => '<div style="font-size:' + metaFontSize + 'px; color:#94a3b8; margin-top:4px;">' + mc + ': ' + item[mc] + '</div>').join('');
+            const metaHtml = (cfg.metaCols || []).map(mc => '<div style="font-size:' + metaFontSize + 'px; color:#94a3b8; margin-top:4px;">' + item[mc] + '</div>').join('');
             tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + item.label + '</div>' +
                                '<div style="font-size:18px; font-weight:900; letter-spacing:-0.02em;">' + formatValue(val, cfg, cfg.heatValueIsDate) + '</div>' + metaHtml;
           } else {
