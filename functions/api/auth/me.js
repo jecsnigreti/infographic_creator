@@ -1,9 +1,10 @@
 import { verifyJWT } from './crypto.js';
+import { getUserPlan, getPlanLimits, countMonthlyUsage } from '../../lib/planLimits.js';
 
 export async function onRequestGet(context) {
   try {
     const { request, env } = context;
-    
+
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
@@ -11,10 +12,10 @@ export async function onRequestGet(context) {
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    
+
     const token = authHeader.substring(7);
     const jwtSecret = env.JWT_SECRET || "local_dev_fallback_secret_key_123456789";
-    
+
     const payload = await verifyJWT(token, jwtSecret);
     if (!payload) {
       return new Response(
@@ -22,14 +23,23 @@ export async function onRequestGet(context) {
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    
+
+    const plan = await getUserPlan(env, payload.sub);
+    const limits = getPlanLimits(plan);
+    const hostedLinksUsed = await countMonthlyUsage(env, payload.sub, 'hosted_link_created');
+
     return new Response(
       JSON.stringify({
         success: true,
         user: {
           id: payload.sub,
           email: payload.email,
-          username: payload.username
+          username: payload.username,
+          plan,
+          usage: {
+            hostedLinksUsed,
+            hostedLinksLimit: limits.hostedLinksPerMonth
+          }
         }
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }

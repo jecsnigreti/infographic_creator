@@ -1,4 +1,5 @@
 import { verifyPassword, signJWT } from './crypto.js';
+import { getPlanLimits, countMonthlyUsage } from '../../lib/planLimits.js';
 
 export async function onRequestPost(context) {
   try {
@@ -56,7 +57,11 @@ export async function onRequestPost(context) {
     };
     
     const token = await signJWT(payload, jwtSecret);
-    
+
+    const plan = user.plan || 'free';
+    const limits = getPlanLimits(plan);
+    const hostedLinksUsed = await countMonthlyUsage(env, user.id, 'hosted_link_created');
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -64,7 +69,12 @@ export async function onRequestPost(context) {
         user: {
           id: user.id,
           email: user.email,
-          username: user.username
+          username: user.username,
+          plan,
+          usage: {
+            hostedLinksUsed,
+            hostedLinksLimit: limits.hostedLinksPerMonth
+          }
         }
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
