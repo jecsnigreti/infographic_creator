@@ -13,6 +13,7 @@ import { POLAND_VOIVODESHIPS } from './maps/poland-voivodeships.js';
 import { ROMANIA_REGIONS } from './maps/romania-regions.js';
 import { NETHERLANDS_PROVINCES } from './maps/netherlands-provinces.js';
 import { AUSTRIA_STATES } from './maps/austria-states.js';
+import { detectColumnType } from './typeDetect.js';
 
 const MAP_TEMPLATES = {
   'usa-high-res': { regions: USA_STATES_HIGH_RES, viewBox: '0 0 1000 600' },
@@ -41,7 +42,11 @@ function minifyJs(str) {
 }
 
 const FORMAT_VALUE_JS_SRC = `
-    function formatValue(val, cfg) {
+    function formatValue(val, cfg, isDate) {
+      if (isDate) {
+        if (typeof val !== 'number' || isNaN(val)) return val;
+        return new Date(val).toLocaleDateString('hu-HU');
+      }
       if (typeof val !== 'number' || isNaN(val)) return val;
       const nf = (cfg && cfg.numberFormat) || {};
       let n = val;
@@ -59,7 +64,11 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function formatValueStatic(val, cfg) {
+function formatValueStatic(val, cfg, isDate) {
+  if (isDate) {
+    if (typeof val !== 'number' || isNaN(val)) return val;
+    return new Date(val).toLocaleDateString('hu-HU');
+  }
   if (typeof val !== 'number' || isNaN(val)) return val;
   const nf = (cfg && cfg.numberFormat) || {};
   let n = val;
@@ -81,7 +90,37 @@ function deriveColumns(mapping) {
   return { labelCol, valueCols, geoCol, metaCols };
 }
 
-function buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }) {
+// Samples each value column's raw data to tell dates apart from numbers, so a date column
+// selected as the heatmap source parses into a sortable timestamp instead of getting mangled
+// by the numeric cleanup below (parseFloat("2024-05-01") silently truncates to 2024).
+function detectDateColumns(database, valueCols) {
+  const dateCols = new Set();
+  valueCols.forEach(col => {
+    const sample = database.data.map(row => row[col]);
+    if (detectColumnType(sample) === 'date') dateCols.add(col);
+  });
+  return dateCols;
+}
+
+function parseDateValue(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return NaN;
+  if (/^\d{4}-\d{1,2}-\d{1,2}/.test(s)) {
+    const t = Date.parse(s);
+    return isNaN(t) ? NaN : t;
+  }
+  const m = s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = '20' + y;
+    const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
+    return isNaN(t) ? NaN : t;
+  }
+  const t = Date.parse(s);
+  return isNaN(t) ? NaN : t;
+}
+
+function buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }, dateCols = new Set()) {
   return database.data.map(row => {
     const item = {
       label: labelCol ? row[labelCol] : 'Unknown',
@@ -89,6 +128,11 @@ function buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }) {
     };
     valueCols.forEach(col => {
       const val = row[col];
+      if (dateCols.has(col)) {
+        const t = parseDateValue(val);
+        item[col] = isNaN(t) ? 0 : t;
+        return;
+      }
       // Robust parsing: handle Hungarian space-separated numbers and commas
       const cleanVal = String(val).replace(/\s+/g, '').replace(',', '.').replace(/[^0-9.-]+/g, '');
       const parsed = parseFloat(cleanVal);
@@ -150,8 +194,11 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
   const uniqueId = `wpm_${Math.random().toString(36).substring(2, 9)}`;
   const cols = deriveColumns(mapping);
   const { valueCols, metaCols } = cols;
-  const cleanedData = buildCleanedData(database, cols);
+  const dateCols = detectDateColumns(database, valueCols);
+  const cleanedData = buildCleanedData(database, cols, dateCols);
   const valueCol = config.heatValueCol || valueCols[0];
+  const heatValueIsDate = dateCols.has(valueCol);
+  const metaFontSize = config.metaFontSize || 11;
 
   const selectedMap = MAP_TEMPLATES[config.mapTemplate] || MAP_TEMPLATES['hu-counties'];
   const layout = computeRegionLayout(selectedMap.regions, selectedMap.viewBox);
@@ -173,8 +220,8 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
     let tooltipInner;
     if (items.length && valueCol) {
       const item = items[0];
-      const metaHtml = metaCols.map(mc => `<div style="font-size:11px;color:#94a3b8;margin-top:2px;">${escapeHtml(mc)}: ${escapeHtml(item[mc])}</div>`).join('');
-      tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(item.label)}</div><div style="font-size:16px;font-weight:900;">${escapeHtml(formatValueStatic(item[valueCol], config))}</div>${metaHtml}`;
+      const metaHtml = metaCols.map(mc => `<div style="font-size:${metaFontSize}px;color:#94a3b8;margin-top:2px;">${escapeHtml(mc)}: ${escapeHtml(item[mc])}</div>`).join('');
+      tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(item.label)}</div><div style="font-size:16px;font-weight:900;">${escapeHtml(formatValueStatic(item[valueCol], config, heatValueIsDate))}</div>${metaHtml}`;
     } else {
       tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(info.name)}</div><div style="font-size:12px;color:#94a3b8;">Nincs adat</div>`;
     }
@@ -228,7 +275,9 @@ export function generateDataVisualCode(database, mapping, engine, config) {
   const dataNodeId = `data_${Math.random().toString(36).substring(2, 9)}`;
 
   const { labelCol, valueCols, geoCol, metaCols } = deriveColumns(mapping);
-  const cleanedData = buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols });
+  const dateCols = detectDateColumns(database, valueCols);
+  const cleanedData = buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }, dateCols);
+  const heatValueCol = config.heatValueCol || valueCols[0];
 
   const minifiedJson = JSON.stringify(cleanedData);
   const configJson = JSON.stringify({
@@ -236,7 +285,9 @@ export function generateDataVisualCode(database, mapping, engine, config) {
     valueCols,
     geoCol,
     metaCols,
-    ...config
+    ...config,
+    heatValueIsDate: dateCols.has(heatValueCol),
+    metaFontSize: config.metaFontSize || 11
   });
 
   const width = config.chartWidth || '100%';
@@ -515,9 +566,9 @@ ${FORMAT_VALUE_JS_SRC}
       legend.style.cssText = 'position:absolute; bottom:2rem; right:2rem; background:rgba(255,255,255,0.95); padding:1rem; border-radius:1.25rem; font-size:0.75rem; border:1px solid #f1f5f9; z-index:100; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); backdrop-filter:blur(8px);';
       legend.innerHTML = '<div style="font-weight:800; margin-bottom:0.75rem; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:flex; align-items:center; gap:0.5rem;"><div style="width:8px; height:8px; border-radius:50%; background:#6366f1;"></div>' + (cfg.legendLabel || valueCol) + '</div>' +
         '<div style="display:flex; align-items:center; gap:1rem;">' +
-          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(minVal, cfg) + '</span>' +
+          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(minVal, cfg, cfg.heatValueIsDate) + '</span>' +
           '<div style="width:120px; height:6px; border-radius:10px; background:linear-gradient(to right, ' + (cfg.heatMin || '#f1f5f9') + ', ' + (cfg.heatMax || '#6366f1') + ');"></div>' +
-          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(maxVal, cfg) + '</span>' +
+          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(maxVal, cfg, cfg.heatValueIsDate) + '</span>' +
         '</div>';
 
       const tooltip = document.createElement('div');
@@ -588,9 +639,10 @@ ${FORMAT_VALUE_JS_SRC}
           if (items.length) {
             const item = items[0];
             const val = item[valueCol];
-            const metaHtml = (cfg.metaCols || []).map(mc => '<div style="font-size:11px; color:#94a3b8; margin-top:4px;">' + mc + ': ' + item[mc] + '</div>').join('');
+            const metaFontSize = cfg.metaFontSize || 11;
+            const metaHtml = (cfg.metaCols || []).map(mc => '<div style="font-size:' + metaFontSize + 'px; color:#94a3b8; margin-top:4px;">' + mc + ': ' + item[mc] + '</div>').join('');
             tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + item.label + '</div>' +
-                               '<div style="font-size:18px; font-weight:900; letter-spacing:-0.02em;">' + formatValue(val, cfg) + '</div>' + metaHtml;
+                               '<div style="font-size:18px; font-weight:900; letter-spacing:-0.02em;">' + formatValue(val, cfg, cfg.heatValueIsDate) + '</div>' + metaHtml;
           } else {
             tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + name + '</div>' +
                                '<div style="font-size:13px; font-weight:700; color:#94a3b8;">Nincs adat</div>';

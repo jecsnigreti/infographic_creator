@@ -71,6 +71,7 @@ const engineConfig = reactive({
   chartHeight: '400px',
   seriesColors: {}, // mapping of colName -> color hex
   numberFormat: { type: 'thousands', decimals: null, suffix: '' },
+  metaFontSize: 11,
   minifyExport: false
 })
 

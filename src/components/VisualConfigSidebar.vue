@@ -212,6 +212,18 @@ function updateNumberFormat(patch) {
             </div>
           </div>
 
+          <!-- Meta Font Size -->
+          <div class="pt-4 border-t border-slate-100">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Metaadat betűméret (px)</label>
+            <input
+              type="number"
+              min="8" max="24"
+              :value="config.metaFontSize"
+              @input="e => updateConfig({ metaFontSize: e.target.value === '' ? 11 : Number(e.target.value) })"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+
           <!-- Map Settings -->
           <template v-if="engine === 'map'">
             <div>
