@@ -13,16 +13,28 @@ const props = defineProps({
   mapping: {
     type: Object,
     required: true
+  },
+  columnTypes: {
+    type: Object,
+    default: () => ({})
   }
 })
 
-const emit = defineEmits(['update-mapping', 'transpose', 'update-cell', 'add-row', 'remove-row', 'add-column', 'remove-column'])
+const emit = defineEmits(['update-mapping', 'update-type', 'transpose', 'update-cell', 'add-row', 'remove-row', 'add-column', 'remove-column'])
 
 const mappingOptions = [
   { value: 'label', label: 'X-Axis / Label' },
   { value: 'value', label: 'Y-Axis / Value' },
   { value: 'geoId', label: 'Geo ID' },
   { value: 'meta', label: 'Metadata' }
+]
+
+const typeOptions = [
+  { value: 'text', label: 'Szöveg' },
+  { value: 'number', label: 'Szám' },
+  { value: 'percent', label: 'Százalék' },
+  { value: 'date', label: 'Dátum' },
+  { value: 'geo', label: 'Geo' }
 ]
 
 const truncate = (text, length = 30) => {
@@ -100,6 +112,14 @@ const isRoleActive = (column, role) => {
                   class="shrink-0 w-5 h-5 flex items-center justify-center rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
                 >×</button>
               </div>
+              <select
+                :value="columnTypes[col] || 'text'"
+                @change="emit('update-type', col, $event.target.value)"
+                title="Oszlop típusa - befolyásolja pl. hogy dátum szerint lehessen-e színezni a térképet"
+                class="mt-1.5 w-full text-[9px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md px-1.5 py-1 outline-none cursor-pointer hover:bg-indigo-100 transition-colors"
+              >
+                <option v-for="t in typeOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+              </select>
             </th>
           </tr>
           

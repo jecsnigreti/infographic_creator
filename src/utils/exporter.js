@@ -90,12 +90,17 @@ function deriveColumns(mapping) {
   return { labelCol, valueCols, geoCol, metaCols };
 }
 
-// Samples each value column's raw data to tell dates apart from numbers, so a date column
-// selected as the heatmap source parses into a sortable timestamp instead of getting mangled
-// by the numeric cleanup below (parseFloat("2024-05-01") silently truncates to 2024).
-function detectDateColumns(database, valueCols) {
+// Tells date columns apart from numbers, so a date column selected as the heatmap source parses
+// into a sortable timestamp instead of getting mangled by the numeric cleanup below
+// (parseFloat("2024-05-01") silently truncates to 2024). Prefers the explicit per-column type
+// the user sees/sets in the data grid; falls back to re-sampling when none is given.
+function detectDateColumns(database, valueCols, columnTypes = {}) {
   const dateCols = new Set();
   valueCols.forEach(col => {
+    if (columnTypes && columnTypes[col]) {
+      if (columnTypes[col] === 'date') dateCols.add(col);
+      return;
+    }
     const sample = database.data.map(row => row[col]);
     if (detectColumnType(sample) === 'date') dateCols.add(col);
   });
@@ -113,6 +118,14 @@ function parseDateValue(raw) {
   if (m) {
     let [, d, mo, y] = m;
     if (y.length === 2) y = '20' + y;
+    const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
+    return isNaN(t) ? NaN : t;
+  }
+  // Compact YYYYMMDD (no separators) - not auto-detected as a date, but a plausible value once
+  // the user explicitly overrides a column's type to "Dátum".
+  const compact = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact) {
+    const [, y, mo, d] = compact;
     const t = new Date(Number(y), Number(mo) - 1, Number(d)).getTime();
     return isNaN(t) ? NaN : t;
   }
@@ -190,11 +203,11 @@ function computeRegionLayout(regions, viewBox) {
  * <script> tags from post content. Takes a pre-uploaded map image URL and overlays invisible,
  * percentage-positioned hotspot divs with pure-CSS :hover tooltips - no script tag anywhere.
  */
-export function generateWordPressSafeMapCode(database, mapping, config, imageUrl) {
+export function generateWordPressSafeMapCode(database, mapping, config, imageUrl, columnTypes = {}) {
   const uniqueId = `wpm_${Math.random().toString(36).substring(2, 9)}`;
   const cols = deriveColumns(mapping);
   const { valueCols, metaCols } = cols;
-  const dateCols = detectDateColumns(database, valueCols);
+  const dateCols = detectDateColumns(database, valueCols, columnTypes);
   const cleanedData = buildCleanedData(database, cols, dateCols);
   const valueCol = config.heatValueCol || valueCols[0];
   const heatValueIsDate = dateCols.has(valueCol);
@@ -270,12 +283,12 @@ ${hotspotsHtml}
   return html.trim();
 }
 
-export function generateDataVisualCode(database, mapping, engine, config) {
+export function generateDataVisualCode(database, mapping, engine, config, columnTypes = {}) {
   const uniqueId = `div_${Math.random().toString(36).substring(2, 9)}`;
   const dataNodeId = `data_${Math.random().toString(36).substring(2, 9)}`;
 
   const { labelCol, valueCols, geoCol, metaCols } = deriveColumns(mapping);
-  const dateCols = detectDateColumns(database, valueCols);
+  const dateCols = detectDateColumns(database, valueCols, columnTypes);
   const cleanedData = buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }, dateCols);
   const heatValueCol = config.heatValueCol || valueCols[0];
 

@@ -56,6 +56,7 @@ const handleLogout = () => {
 
 const activeDatabase = ref(null) // Holds { filename, data, columns }
 const dataMapping = reactive({}) // Holds column -> array of roles ['label', 'geoId']
+const columnTypes = reactive({}) // Holds column -> 'text' | 'number' | 'percent' | 'date' | 'geo' (auto-detected, user-overridable)
 
 const visualEngine = ref('map')
 const engineConfig = reactive({
@@ -79,18 +80,25 @@ const handleDataLoaded = (payload) => {
   activeDatabase.value = payload
 
   Object.keys(dataMapping).forEach(key => delete dataMapping[key])
+  Object.keys(columnTypes).forEach(key => delete columnTypes[key])
   Object.keys(engineConfig.seriesColors).forEach(key => delete engineConfig.seriesColors[key])
   engineConfig.heatValueCol = ''
 
-  // Real column-type inference (number/percent/date/geo/text) drives the initial role suggestion.
-  const { mapping: suggested } = suggestMapping(payload.columns, payload.data)
+  // Real column-type inference (number/percent/date/geo/text) drives the initial role suggestion
+  // and is shown/overridable per column in the grid (e.g. to force a column to be read as a date).
+  const { mapping: suggested, types } = suggestMapping(payload.columns, payload.data)
   payload.columns.forEach(col => {
     dataMapping[col] = suggested[col] || []
+    columnTypes[col] = types[col] || 'text'
     if (dataMapping[col].includes('value')) {
       engineConfig.seriesColors[col] = '#06b6d4'
       if (!engineConfig.heatValueCol) engineConfig.heatValueCol = col
     }
   })
+}
+
+const handleTypeUpdate = (col, type) => {
+  columnTypes[col] = type
 }
 
 const handleCellUpdate = (idx, col, value) => {
@@ -117,6 +125,7 @@ const handleAddColumn = () => {
   while (activeDatabase.value.columns.includes(name)) { n++; name = `Oszlop ${n}` }
   activeDatabase.value.columns.push(name)
   activeDatabase.value.data.forEach(row => { row[name] = '' })
+  columnTypes[name] = 'text'
 }
 
 const handleRemoveColumn = (col) => {
@@ -124,6 +133,7 @@ const handleRemoveColumn = (col) => {
   activeDatabase.value.columns = activeDatabase.value.columns.filter(c => c !== col)
   activeDatabase.value.data.forEach(row => { delete row[col] })
   delete dataMapping[col]
+  delete columnTypes[col]
   delete engineConfig.seriesColors[col]
   if (engineConfig.heatValueCol === col) engineConfig.heatValueCol = ''
 }
@@ -213,14 +223,16 @@ const handleGenerate = () => {
   lastSnapshot.value = {
     database: JSON.parse(JSON.stringify(activeDatabase.value)),
     mapping: JSON.parse(JSON.stringify(dataMapping)),
-    config: JSON.parse(JSON.stringify(engineConfig))
+    config: JSON.parse(JSON.stringify(engineConfig)),
+    columnTypes: JSON.parse(JSON.stringify(columnTypes))
   }
 
   generatedCode.value = generateDataVisualCode(
     activeDatabase.value,
     dataMapping,
     visualEngine.value,
-    engineConfig
+    engineConfig,
+    columnTypes
   )
   exportMode.value = 'script'
   wpImageUrl.value = ''
@@ -248,7 +260,7 @@ const copyHostedLink = () => {
 
 const wpSafeCode = computed(() => {
   if (!lastSnapshot.value) return ''
-  return generateWordPressSafeMapCode(lastSnapshot.value.database, lastSnapshot.value.mapping, lastSnapshot.value.config, wpImageUrl.value)
+  return generateWordPressSafeMapCode(lastSnapshot.value.database, lastSnapshot.value.mapping, lastSnapshot.value.config, wpImageUrl.value, lastSnapshot.value.columnTypes)
 })
 
 const codeToShow = computed(() => exportMode.value === 'wp-safe' ? wpSafeCode.value : generatedCode.value)
@@ -337,7 +349,9 @@ const handleSvgExport = async () => {
                   :data="activeDatabase.data"
                   :columns="activeDatabase.columns"
                   :mapping="dataMapping"
+                  :column-types="columnTypes"
                   @update-mapping="handleMappingUpdate"
+                  @update-type="handleTypeUpdate"
                   @transpose="handleTranspose"
                   @update-cell="handleCellUpdate"
                   @add-row="handleAddRow"
