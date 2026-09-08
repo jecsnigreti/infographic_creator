@@ -171,6 +171,9 @@ function buildCleanedData(database, { labelCol, valueCols, geoCol, metaCols }, d
         // null (not 0) marks "no usable value" so it's excluded from the color range and
         // rendered as a distinct "no data" grey instead of being treated as a real data point.
         item[col] = isNaN(t) ? null : t;
+        // Keep the exact text the user typed so the tooltip can show it back verbatim (whatever
+        // format/order/separators they used) instead of reformatting into one fixed style.
+        item[col + '__raw'] = isNaN(t) ? null : String(val ?? '').trim();
         return;
       }
       const raw = String(val ?? '').trim();
@@ -263,7 +266,8 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
     if (items.length && valueCol && typeof items[0][valueCol] === 'number') {
       const item = items[0];
       const metaHtml = metaCols.map(mc => `<div style="font-size:${metaFontSize}px;color:#94a3b8;margin-top:2px;">${escapeHtml(item[mc])}</div>`).join('');
-      tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(item.label)}</div><div style="font-size:16px;font-weight:900;">${escapeHtml(formatValueStatic(item[valueCol], config, heatValueIsDate))}</div>${metaHtml}`;
+      const displayVal = heatValueIsDate ? (item[valueCol + '__raw'] || formatValueStatic(item[valueCol], config, true)) : formatValueStatic(item[valueCol], config, false);
+      tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(item.label)}</div><div style="font-size:16px;font-weight:900;">${escapeHtml(displayVal)}</div>${metaHtml}`;
     } else {
       tooltipInner = `<div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:4px;">${escapeHtml(info.name)}</div><div style="font-size:12px;color:#94a3b8;">Nincs adat</div>`;
     }
@@ -285,7 +289,7 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
 
   const a11yHeaderCols = [cols.labelCol || 'Label', ...valueCols, ...metaCols];
   const a11yRows = cleanedData.map(item => {
-    const cells = [item.label, ...valueCols.map(c => item[c]), ...metaCols.map(c => item[c])];
+    const cells = [item.label, ...valueCols.map(c => (dateCols.has(c) ? item[c + '__raw'] : item[c])), ...metaCols.map(c => item[c])];
     return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
   }).join('');
   const a11yTable = `<table class="infog-sr-table"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
@@ -338,7 +342,7 @@ export function generateDataVisualCode(database, mapping, engine, config, column
   // Hidden-but-accessible data table: screen-reader / no-JS fallback (baseline WCAG coverage).
   const a11yHeaderCols = [labelCol || 'Label', ...valueCols, ...metaCols];
   const a11yRows = cleanedData.map(item => {
-    const cells = [item.label, ...valueCols.map(c => item[c]), ...metaCols.map(c => item[c])];
+    const cells = [item.label, ...valueCols.map(c => (dateCols.has(c) ? item[c + '__raw'] : item[c])), ...metaCols.map(c => item[c])];
     return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
   }).join('');
   const a11yTable = `<table class="infog-sr-table"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
@@ -604,14 +608,24 @@ ${FORMAT_VALUE_JS_SRC}
       const maxVal = values.length ? Math.max(...values) : 100;
       const range = maxVal - minVal;
 
+      // For date columns, show the value back exactly as the user typed it (whatever
+      // format/order/separators) instead of reformatting into one fixed style.
+      function displayHeatValue(val) {
+        if (cfg.heatValueIsDate) {
+          const match = data.find(d => d[valueCol] === val && d[valueCol + '__raw']);
+          if (match) return match[valueCol + '__raw'];
+        }
+        return formatValue(val, cfg, cfg.heatValueIsDate);
+      }
+
       // Build legend
       const legend = document.createElement('div');
       legend.style.cssText = 'position:absolute; bottom:2rem; right:2rem; background:rgba(255,255,255,0.95); padding:1rem; border-radius:1.25rem; font-size:0.75rem; border:1px solid #f1f5f9; z-index:100; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); backdrop-filter:blur(8px);';
       legend.innerHTML = '<div style="font-weight:800; margin-bottom:0.75rem; color:#475569; text-transform:uppercase; letter-spacing:0.05em; display:flex; align-items:center; gap:0.5rem;"><div style="width:8px; height:8px; border-radius:50%; background:#6366f1;"></div>' + (cfg.legendLabel || valueCol) + '</div>' +
         '<div style="display:flex; align-items:center; gap:1rem;">' +
-          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(minVal, cfg, cfg.heatValueIsDate) + '</span>' +
+          '<span style="color:#94a3b8; font-weight:700;">' + displayHeatValue(minVal) + '</span>' +
           '<div style="width:120px; height:6px; border-radius:10px; background:linear-gradient(to right, ' + (cfg.heatMin || '#f1f5f9') + ', ' + (cfg.heatMax || '#6366f1') + ');"></div>' +
-          '<span style="color:#94a3b8; font-weight:700;">' + formatValue(maxVal, cfg, cfg.heatValueIsDate) + '</span>' +
+          '<span style="color:#94a3b8; font-weight:700;">' + displayHeatValue(maxVal) + '</span>' +
         '</div>';
 
       const tooltip = document.createElement('div');
@@ -687,8 +701,9 @@ ${FORMAT_VALUE_JS_SRC}
             const val = item[valueCol];
             const metaFontSize = cfg.metaFontSize || 11;
             const metaHtml = (cfg.metaCols || []).map(mc => '<div style="font-size:' + metaFontSize + 'px; color:#94a3b8; margin-top:4px;">' + item[mc] + '</div>').join('');
+            const displayVal = (cfg.heatValueIsDate && item[valueCol + '__raw']) ? item[valueCol + '__raw'] : formatValue(val, cfg, cfg.heatValueIsDate);
             tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + item.label + '</div>' +
-                               '<div style="font-size:18px; font-weight:900; letter-spacing:-0.02em;">' + formatValue(val, cfg, cfg.heatValueIsDate) + '</div>' + metaHtml;
+                               '<div style="font-size:18px; font-weight:900; letter-spacing:-0.02em;">' + displayVal + '</div>' + metaHtml;
           } else {
             tooltip.innerHTML = '<div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:5px; text-transform:uppercase; display:flex; align-items:center; gap:6px;">' + dot + name + '</div>' +
                                '<div style="font-size:13px; font-weight:700; color:#94a3b8;">Nincs adat</div>';
