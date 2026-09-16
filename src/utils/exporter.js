@@ -292,7 +292,7 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
     const cells = [item.label, ...valueCols.map(c => (dateCols.has(c) ? item[c + '__raw'] : item[c])), ...metaCols.map(c => item[c])];
     return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
   }).join('');
-  const a11yTable = `<table class="infog-sr-table"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
+  const a11yTable = `<table class="infog-sr-table" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
 
   const html = `<!-- Data-to-Visual WordPress-Safe Export (no <script> tags) -->
 <div style="width:100%; background:#ffffff; border-radius:2rem; border:1px solid #f1f5f9; box-sizing:border-box; padding:2rem; margin:2.5rem 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; box-shadow:0 25px 50px -12px rgba(0,0,0,0.03);">
@@ -355,7 +355,7 @@ export function generateDataVisualCode(database, mapping, engine, config, column
     const cells = [item.label, ...valueCols.map(c => (dateCols.has(c) ? item[c + '__raw'] : item[c])), ...metaCols.map(c => item[c])];
     return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
   }).join('');
-  const a11yTable = `<table class="infog-sr-table"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
+  const a11yTable = `<table class="infog-sr-table" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;"><caption>${escapeHtml(config.title || 'Adatt\u00e1bl\u00e1zat')}</caption><thead><tr>${a11yHeaderCols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${a11yRows}</tbody></table>`;
 
   let css = `
   @keyframes spin { to { transform: rotate(360deg); } }
