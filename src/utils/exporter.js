@@ -284,7 +284,7 @@ export function generateWordPressSafeMapCode(database, mapping, config, imageUrl
   </div>`
     : '';
   const footerHtml = config.source
-    ? `<div style="margin-top:1rem; font-size:0.75rem; color:#94a3b8; font-weight:500;">Forr\u00e1s: ${escapeHtml(config.source)}</div>`
+    ? `<div style="margin-top:1rem; font-size:0.75rem; color:#94a3b8; font-weight:500;">${escapeHtml(config.source)}</div>`
     : '';
 
   const a11yHeaderCols = [cols.labelCol || 'Label', ...valueCols, ...metaCols];
@@ -391,7 +391,7 @@ export function generateDataVisualCode(database, mapping, engine, config, column
   </div>`
     : '';
   const footerHtml = config.source
-    ? `<div class="dv-footer" style="margin-top:1rem; font-size:0.75rem; color:#94a3b8; font-weight:500;">Forrás: ${escapeHtml(config.source)}</div>`
+    ? `<div class="dv-footer" style="margin-top:1rem; font-size:0.75rem; color:#94a3b8; font-weight:500;">${escapeHtml(config.source)}</div>`
     : '';
 
   let html = `

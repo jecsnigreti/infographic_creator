@@ -12,10 +12,17 @@ export function estimateEmbedHeight(html, iframeWidth = 900) {
     cfg = {};
   }
 
-  const WRAP_PADDING = 64; // 2rem top + 2rem bottom on .data-visual-wrap
+  // The outer .data-visual-wrap carries both padding:2rem AND margin:2.5rem 0 - both add to the
+  // page's total scrollable height, so both must be counted. Read the real values out of the HTML
+  // instead of hardcoding them so this stays correct if exporter.js's spacing ever changes.
+  const paddingMatch = html.match(/padding:\s*([\d.]+)rem;/);
+  const marginMatch = html.match(/margin:\s*([\d.]+)rem\s+0;/);
+  const paddingPx = paddingMatch ? Math.round(parseFloat(paddingMatch[1]) * 16) * 2 : 64;
+  const marginPx = marginMatch ? Math.round(parseFloat(marginMatch[1]) * 16) * 2 : 80;
+  const WRAP_SPACING = paddingPx + marginPx + 2; // +2 for the 1px top/bottom border
   const HEADER = (cfg.title || cfg.subtitle) ? 70 : 0;
-  const FOOTER = cfg.source ? 30 : 0;
-  const BUFFER = 24; // small safety margin so a slight under-estimate doesn't force a scrollbar
+  const FOOTER = cfg.source ? 34 : 0;
+  const BUFFER = 30; // safety margin so a slight under-estimate doesn't force a scrollbar
 
   let contentHeight;
   if (cfg.engine === 'map') {
@@ -32,5 +39,5 @@ export function estimateEmbedHeight(html, iframeWidth = 900) {
     contentHeight = heightMatch ? Number(heightMatch[1]) : 400;
   }
 
-  return Math.max(300, Math.min(2000, contentHeight + WRAP_PADDING + HEADER + FOOTER + BUFFER));
+  return Math.max(300, Math.min(2000, contentHeight + WRAP_SPACING + HEADER + FOOTER + BUFFER));
 }

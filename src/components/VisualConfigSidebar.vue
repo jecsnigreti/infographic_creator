@@ -124,7 +124,7 @@ function updateNumberFormat(patch) {
             type="text"
             :value="config.source"
             @input="e => updateConfig({ source: e.target.value })"
-            placeholder="Forrás megjelölése (pl. KSH, 2026)"
+            placeholder="Forrás (pl. Forrás: KSH, 2026)"
             class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
