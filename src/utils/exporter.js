@@ -339,6 +339,16 @@ export function generateDataVisualCode(database, mapping, engine, config, column
   const width = config.chartWidth || '100%';
   const height = config.chartHeight || '500px';
 
+  // Maps have a real geographic aspect ratio (from the template's viewBox) - a fixed pixel
+  // min-height leaves dead space below a shorter-than-expected map, or forces scrolling for a
+  // taller one. Charts don't have an intrinsic ratio, so they keep the configurable fixed height.
+  let containerStyle = `min-height:${height}; position:relative; overflow:hidden;`;
+  if (engine === 'map') {
+    const mapForRatio = MAP_TEMPLATES[config.mapTemplate] || MAP_TEMPLATES['hu-counties'];
+    const [, , vbW, vbH] = mapForRatio.viewBox.split(' ').map(Number);
+    containerStyle = `aspect-ratio:${vbW}/${vbH}; position:relative; overflow:hidden;`;
+  }
+
   // Hidden-but-accessible data table: screen-reader / no-JS fallback (baseline WCAG coverage).
   const a11yHeaderCols = [labelCol || 'Label', ...valueCols, ...metaCols];
   const a11yRows = cleanedData.map(item => {
@@ -388,7 +398,7 @@ export function generateDataVisualCode(database, mapping, engine, config, column
 <!-- Data-to-Visual WP Generator Code -->
 <div class="data-visual-wrap" role="group" aria-label="${escapeHtml(config.title || 'Interaktív adatvizualizáció')}" style="width:${width}; background:#ffffff; border-radius:2rem; border:1px solid #f1f5f9; box-sizing:border-box; padding:2rem; margin: 2.5rem 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.03);">
   ${headerHtml}
-  <div id="${uniqueId}" class="data-visual-container" style="min-height:${height}; position:relative; overflow:hidden;">
+  <div id="${uniqueId}" class="data-visual-container" style="${containerStyle}">
     <div class="visual-placeholder" style="text-align:center; padding:2rem; color:#94a3b8; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:1rem;">
       <div style="width:40px; height:40px; border:3px solid #f1f5f9; border-top-color:#6366f1; border-radius:50%; animation: spin 0.8s linear infinite;"></div>
       <strong style="font-weight:600; letter-spacing:-0.01em;">Initializing Visualization...</strong>
@@ -638,6 +648,10 @@ ${FORMAT_VALUE_JS_SRC}
       const viewBox = ${JSON.stringify(selectedMap.viewBox)};
 
       svg.setAttribute('viewBox', viewBox);
+      // Explicit inline sizing (wins over most host-page/theme stylesheets, e.g. an icon-font
+      // reset like "svg { width: 1em; height: 1em; }") so the map reliably fills the aspect-ratio
+      // box the container now uses, instead of depending on implicit replaced-element sizing.
+      svg.setAttribute('style', 'width:100%; height:100%; display:block;');
       const regionOwnNames = {};
       regions.forEach(reg => {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");

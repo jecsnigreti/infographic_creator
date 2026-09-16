@@ -317,6 +317,32 @@ const handlePngExport = async (scale) => {
   }
 }
 
+const handlePreviewLoad = () => {
+  const iframe = previewIframe.value
+  if (!iframe) return
+  const resize = () => {
+    try {
+      const doc = iframe.contentDocument
+      const target = doc && (doc.querySelector('.data-visual-wrap') || doc.body)
+      if (target) iframe.style.height = target.scrollHeight + 'px'
+    } catch (err) {
+      // Cross-origin or not-yet-ready - just skip this attempt.
+    }
+  }
+  // The map/chart init script finishes just after load and flips __RENDER_READY__ - poll briefly
+  // for it so the iframe grows to the real final height instead of the loading-placeholder's.
+  let attempts = 0
+  const poll = () => {
+    const ready = iframe.contentWindow && iframe.contentWindow.__RENDER_READY__
+    resize()
+    if (!ready && attempts < 20) {
+      attempts++
+      setTimeout(poll, 100)
+    }
+  }
+  poll()
+}
+
 const handleSvgExport = async () => {
   try {
     if (!showPreview.value) {
@@ -501,8 +527,9 @@ const handleSvgExport = async () => {
               <iframe
                 ref="previewIframe"
                 :srcdoc="codeToShow"
-                class="w-full min-h-[500px] border-none block"
+                class="w-full min-h-[200px] border-none block"
                 sandbox="allow-scripts allow-same-origin"
+                @load="handlePreviewLoad"
               ></iframe>
             </div>
           </div>
