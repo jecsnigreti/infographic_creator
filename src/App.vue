@@ -515,7 +515,7 @@ const handleSvgExport = async () => {
 
           <!-- Preview Panel -->
           <div v-if="showPreview" class="flex-1 md:w-1/2 min-w-0 border-t md:border-t-0 md:border-l border-slate-100 overflow-auto p-8 bg-white flex flex-col items-center">
-            <div class="w-full border border-slate-100 rounded-[2rem] shadow-2xl overflow-hidden bg-white">
+            <div class="w-full shrink-0 border border-slate-100 rounded-[2rem] shadow-2xl overflow-hidden bg-white">
               <div class="bg-slate-50 px-6 py-3 border-b border-slate-100 flex items-center gap-2">
                  <div class="flex gap-1.5">
                     <div class="w-3 h-3 rounded-full bg-rose-400"></div>
