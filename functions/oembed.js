@@ -23,7 +23,7 @@ export async function onRequestGet({ request, env }) {
     });
   }
 
-  const exists = await env.VISUALS_KV.get(id);
+  const { value: exists, metadata } = await env.VISUALS_KV.getWithMetadata(id);
   if (!exists) {
     return new Response(JSON.stringify({ message: 'Nem található.' }), {
       status: 404,
@@ -34,7 +34,8 @@ export async function onRequestGet({ request, env }) {
   const origin = new URL(request.url).origin;
   const embedUrl = `${origin}/v/${id}`;
   const width = 900;
-  const height = 750;
+  // Falls back to 750 only for links created before height estimation existed.
+  const height = (metadata && Number(metadata.height)) || 750;
 
   const body = {
     version: '1.0',
@@ -43,7 +44,7 @@ export async function onRequestGet({ request, env }) {
     provider_url: origin,
     width,
     height,
-    html: `<iframe src="${embedUrl}" width="${width}" height="${height}" style="border:0;max-width:100%;width:100%;" scrolling="yes" loading="lazy"></iframe>`
+    html: `<iframe src="${embedUrl}" width="${width}" height="${height}" style="border:0;max-width:100%;width:100%;" loading="lazy"></iframe>`
   };
 
   return new Response(JSON.stringify(body), {

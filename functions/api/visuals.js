@@ -1,5 +1,6 @@
 import { verifyJWT } from './auth/crypto.js';
 import { getUserPlan, getPlanLimits, countMonthlyUsage, logUsage } from '../lib/planLimits.js';
+import { estimateEmbedHeight } from '../lib/embedHeight.js';
 
 function randomId() {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
@@ -59,7 +60,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   const id = randomId();
-  await env.VISUALS_KV.put(id, html, { metadata: { ownerId: payload.sub, createdAt: Date.now() } });
+  const height = estimateEmbedHeight(html);
+  await env.VISUALS_KV.put(id, html, { metadata: { ownerId: payload.sub, createdAt: Date.now(), height } });
   await logUsage(env, payload.sub, USAGE_ACTION);
 
   const origin = new URL(request.url).origin;
