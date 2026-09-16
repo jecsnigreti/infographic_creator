@@ -16,6 +16,19 @@ export function getPlanLimits(plan) {
   return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
 }
 
+// Accounts that always get Pro access regardless of what's stored in D1 or what Stripe reports -
+// this is a permanent, code-level override (not a one-time DB edit), so it survives any future
+// plan/webhook changes to these rows.
+const FREE_ACCESS_EMAILS = new Set([
+  'jecsni.greta@gmx.com',
+  'jecsni.greti@gmail.com'
+]);
+
+export function resolvePlan(email, storedPlan) {
+  if (email && FREE_ACCESS_EMAILS.has(String(email).toLowerCase())) return 'pro';
+  return storedPlan || 'free';
+}
+
 function startOfCurrentMonthIso() {
   const d = new Date();
   d.setUTCDate(1);
@@ -37,6 +50,7 @@ export async function logUsage(env, userId, action) {
 }
 
 export async function getUserPlan(env, userId) {
-  const row = await env.DB.prepare('SELECT plan FROM users WHERE id = ? LIMIT 1').bind(userId).first();
-  return (row && row.plan) || 'free';
+  const row = await env.DB.prepare('SELECT plan, email FROM users WHERE id = ? LIMIT 1').bind(userId).first();
+  if (!row) return 'free';
+  return resolvePlan(row.email, row.plan);
 }

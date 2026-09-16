@@ -1,5 +1,5 @@
 import { verifyPassword, signJWT } from './crypto.js';
-import { getPlanLimits, countMonthlyUsage } from '../../lib/planLimits.js';
+import { getPlanLimits, countMonthlyUsage, resolvePlan } from '../../lib/planLimits.js';
 
 export async function onRequestPost(context) {
   try {
@@ -58,7 +58,7 @@ export async function onRequestPost(context) {
     
     const token = await signJWT(payload, jwtSecret);
 
-    const plan = user.plan || 'free';
+    const plan = resolvePlan(user.email, user.plan);
     const limits = getPlanLimits(plan);
     const hostedLinksUsed = await countMonthlyUsage(env, user.id, 'hosted_link_created');
 
